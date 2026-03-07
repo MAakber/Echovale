@@ -39,9 +39,11 @@ var db *gorm.DB
 
 func initDB() {
 	var err error
-	db, err = gorm.Open(sqlite.Open("cultural_memory.db"), &gorm.Config{})
+	// 使用绝对路径，确保数据库文件在项目目录下
+	dbPath := filepath.Join("..", "server", "cultural_memory.db")
+	db, err = gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
 	if err != nil {
-		log.Fatal("failed to connect database")
+		log.Fatalf("failed to connect database: %v", err)
 	}
 
 	// 自动迁移
