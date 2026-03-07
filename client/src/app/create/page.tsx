@@ -170,7 +170,7 @@ export default function CreatePage() {
             {step === 1 && (
               <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div className="text-center mb-10">
-                  <h2 className="text-3xl font-bold mb-4 italic font-serif">上传你的乡村片段</h2>
+                  <h2 className="text-3xl font-bold mb-4 font-serif">上传你的乡村片段</h2>
                   <p className="text-stone-500 dark:text-stone-400">无论是文字记录、老照片还是语音对话，AI 都将以此为根基进行重构。</p>
                 </div>
                 
@@ -232,7 +232,7 @@ export default function CreatePage() {
             {step === 2 && (
               <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
                 <div className="text-center mb-10">
-                  <h2 className="text-3xl font-bold mb-4 italic font-serif">选择 AI 实验工具</h2>
+                  <h2 className="text-3xl font-bold mb-4 font-serif">选择 AI 实验工具</h2>
                   <p className="text-stone-500 dark:text-stone-400">选择大赛指定的国产 AI 模型，为您的素材注入灵魂。</p>
                 </div>
 
@@ -271,7 +271,7 @@ export default function CreatePage() {
               <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500 flex flex-col items-center">
                 <div className="text-center mb-6">
                   <Sparkles className="w-10 h-10 text-amber-500 mx-auto mb-4" />
-                  <h2 className="text-3xl font-bold mb-4 italic font-serif">创作已就绪</h2>
+                  <h2 className="text-3xl font-bold mb-4 font-serif">创作已就绪</h2>
                   <p className="text-stone-500 dark:text-stone-400">AI 已经完成了内容的初稿。您可以立即预览效果并发布。</p>
                 </div>
                 

@@ -124,7 +124,7 @@ export default function Home() {
               viewport={{ once: true }}
               transition={{ duration: 0.8 }}
             >
-              <h2 className="text-4xl md:text-6xl font-bold mb-8 italic">让乡愁不再是褪色的照片</h2>
+              <h2 className="text-4xl md:text-6xl font-bold mb-8">让乡愁不再是褪色的照片</h2>
               <p className="text-xl text-stone-400 mb-12 max-w-3xl mx-auto">
                 每一处乡村都有不为人知的故事。现在就开始记录，用 AI 为你的家乡留下永恒的数字档案。
               </p>

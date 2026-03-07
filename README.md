@@ -56,19 +56,19 @@ npm run dev
 
 ### 前端 (Client)
 
-- **框架**: Next.js 15 (App Router)
-- **样式**: Tailwind CSS v4 (极致性能与暗色模式支持)
-- **动画**: Framer Motion (页面过渡与滑块交互)
-- **图标**: Lucide React
-- **构建工具**: Turbopack
+- **框架**: Next.js 16 (App Router) & React 19 (最新稳定版性能卓越)
+- **样式**: Tailwind CSS v4 (支持现代 CSS 特性、OKLCH 色彩与原生暗色模式)
+- **动画**: Framer Motion (驱动页面过渡、地图滑块及卡片布局动画)
+- **图标**: Lucide React (轻量级矢量图标库)
+- **状态管理**: React Hooks (useState/useEffect) + Next.js Server Components
 
 ### 后端 (Server)
 
-- **语言**: Go 1.22+
-- **框架**: Gin Gonic (高性能 Web 引擎)
-- **数据库**: SQLite (本地持久化存储，无需额外环境配置)
-- **ORM**: GORM
-- **接口规范**: RESTful API
+- **语言**: Go 1.25+ (高性能、并发友好的编译型语言)
+- **框架**: Gin Gonic (业内领先的高性能轻量级 Web 引擎)
+- **数据库**: SQLite (嵌入式数据库，免环境配置，完美支持项目便携性)
+- **ORM**: GORM (支持结构体与数据库的无缝映射)
+- **接口规范**: 基于 RESTful 标准的 API 设计
 
 ---
 
