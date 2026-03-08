@@ -1,6 +1,6 @@
-~"use client";
+"use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import Image from "next/image";
 import { PLACEHOLDERS } from "@/lib/constants";
 
@@ -60,6 +60,8 @@ export default function ImageComparison({ beforeImage, afterImage }: ImageCompar
           src={displayBefore} 
           alt="Original" 
           fill 
+          sizes="(max-width: 1024px) 100vw, 66vw"
+          quality={92}
           className="object-cover"
         />
       </div>
@@ -75,6 +77,8 @@ export default function ImageComparison({ beforeImage, afterImage }: ImageCompar
                 src={displayAfter} 
                 alt="AI Restored" 
                 fill 
+              sizes="(max-width: 1024px) 100vw, 66vw"
+              quality={92}
                 className="object-cover"
             />
         </div>

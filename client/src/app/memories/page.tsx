@@ -6,57 +6,17 @@ import Footer from "@/components/layout/Footer";
 import MemoryCard from "@/components/home/MemoryCard";
 import { GallerySkeleton } from "@/components/ui/gallery-skeleton";
 import { motion, AnimatePresence } from "framer-motion";
+import { MOCK_MEMORIES } from "@/lib/data/mockMemories";
 
-const MOCK_MEMORIES = [
-  {
-    id: "1",
-    title: "古村落的晨曦",
-    category: "建筑",
-    location: "安徽 宏村",
-    imageUrl: "https://images.unsplash.com/photo-1599591459325-ca64273895e6?auto=format&fit=crop&q=80&w=800",
-    excerpt: "徽派建筑的独特韵律，在现代 AI 的笔触下焕发新生。白墙黑瓦，倒映在南湖的晨光中。"
-  },
-  {
-    id: "2",
-    title: "皮影戏：光影传说",
-    category: "非遗",
-    location: "陕西 华县",
-    imageUrl: "https://images.unsplash.com/photo-1635349581701-d7790b79086c?auto=format&fit=crop&q=80&w=800",
-    excerpt: "跳动的指尖，诉说着千年的故事。数字修复让模糊的皮影纹理重新清晰，留住这门艺术的灵魂。"
-  },
-  {
-    id: "3",
-    title: "梯田上的歌谣",
-    category: "民俗",
-    location: "云南 元阳",
-    imageUrl: "https://images.unsplash.com/photo-1543161092-23961d2d0985?auto=format&fit=crop&q=80&w=800",
-    excerpt: "层层叠叠的梯田，是大地最美的指纹。哈尼族先民的智慧，在数字三维建模中展现无遗。"
-  },
-  {
-    id: "4",
-    title: "老街的旧时光",
-    category: "建筑",
-    location: "福建 泉州",
-    imageUrl: "https://images.unsplash.com/photo-1587842668502-3c30656a88e9?auto=format&fit=crop&q=80&w=800",
-    excerpt: "红砖厝里，藏着下南洋的故事。AI 对老街色彩的精准还原，带你回到那个红火的时代。"
-  },
-  {
-    id: "5",
-    title: "苗寨银饰盛装",
-    category: "非遗",
-    location: "贵州 西江",
-    imageUrl: "https://images.unsplash.com/photo-1605341203975-ad3473950c76?auto=format&fit=crop&q=80&w=800",
-    excerpt: "精美绝伦的银饰，承载着民族的信仰。超清晰影像建模，让每一处錾刻纹样都清晰可见。"
-  },
-  {
-    id: "6",
-    title: "窑火传承：寻找瓷魂",
-    category: "非遗",
-    location: "江西 景德镇",
-    imageUrl: "https://images.unsplash.com/photo-1582266255765-fa5cf1a1d501?auto=format&fit=crop&q=80&w=800",
-    excerpt: "炉火纯青的背后，是匠人一生的坚守。数字孪生技术记录了瓷源的演化与重构过程。"
-  }
-];
+interface ApiMemorySummary {
+  id: number;
+  title: string;
+  category: string;
+  location: string;
+  description: string;
+  ai_polished_story: string;
+  restored_image_path: string;
+}
 
 export default function MemoriesPage() {
   const [loading, setLoading] = useState(true);
@@ -73,8 +33,8 @@ export default function MemoriesPage() {
         
         const response = await fetch(url);
         if (response.ok) {
-          const data = await response.json();
-          const formatted = data.map((m: any) => ({
+          const data: ApiMemorySummary[] = await response.json();
+          const formatted = data.map((m) => ({
             id: m.id.toString(),
             title: m.title,
             category: m.category,
@@ -90,7 +50,7 @@ export default function MemoriesPage() {
             setMemories([...mockFiltered, ...formatted]);
           }
         }
-      } catch (err) {
+      } catch {
         console.log("Using mock data as backend is unreachable");
       } finally {
         setLoading(false);

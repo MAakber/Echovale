@@ -2,38 +2,75 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import Image from "next/image";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { ChevronLeft, MapPin, Calendar, Tag, Share2, Heart, Award } from "lucide-react";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import ImageComparison from "@/components/home/ImageComparison";
 import { PLACEHOLDERS } from "@/lib/constants";
+import { getMockMemoryById, type MockMemory } from "@/lib/data/mockMemories";
 
-// 模拟数据获取函数
-const getMemoryById = (id: string) => {
-  const memories = [
-    {
-      id: "1",
-      title: "古村落的晨曦",
-      category: "建筑",
-      location: "安徽 宏村",
-      date: "2024-03-20",
-      content: "宏村坐落于黄山西南麓，距黟县县城11公里。全村现保存完好的明清古民居有140余幢，是典型的徽派建筑。其布局之精巧，被称为“画里的乡村”。\n\n通过 AIGC 技术，我们对一组拍摄于 80 年代的褪色老照片进行了色彩还原与清晰度增强。在修复过程中，AI 学习了大量清代徽派建筑的细部特征，精准补全了剥落的马头墙纹理，并还原了当时清澈见底的南湖倒影。这种数字修复不仅是视觉上的提升，更是对乡村文化空间的数字化封存。",
-      tags: ["徽派建筑", "世界文化遗产", "数字修复"],
-      beforeImage: PLACEHOLDERS.OLD_PHOTO,
-      afterImage: "https://images.unsplash.com/photo-1599591459325-ca64273895e6?auto=format&fit=crop&q=80&w=1200",
-      author: "记忆守护者 - 小林",
-      aiMethod: "Stable Diffusion XL + ControlNet (Canny/Scribble)"
-    }
-  ];
-  return memories.find(m => m.id === id) || memories[0];
-};
+interface ApiMemoryDetail {
+  id: number;
+  title: string;
+  category: string;
+  location: string;
+  description: string;
+  ai_polished_story: string;
+  original_image_path: string;
+  restored_image_path: string;
+  author?: string;
+  tags?: string;
+  created_at: string;
+}
+
+interface DisplayMemory {
+  title: string;
+  category: string;
+  location: string;
+  date: string;
+  content: string;
+  tags: string[];
+  beforeImage: string;
+  afterImage: string;
+  author: string;
+  aiMethod: string;
+}
+
+function mapApiMemoryToDisplay(data: ApiMemoryDetail): DisplayMemory {
+  return {
+    title: data.title,
+    category: data.category,
+    location: data.location,
+    date: new Date(data.created_at).toLocaleDateString(),
+    content: data.ai_polished_story || data.description,
+    tags: data.tags ? data.tags.split(",") : ["乡村记忆", "AI修复"],
+    beforeImage: data.original_image_path ? `http://localhost:8080${data.original_image_path}` : PLACEHOLDERS.OLD_PHOTO,
+    afterImage: data.restored_image_path ? `http://localhost:8080${data.restored_image_path}` : PLACEHOLDERS.AI_RESTORED,
+    author: data.author || "记忆守护者",
+    aiMethod: "Stable Diffusion XL + DeepSeek-V3"
+  };
+}
+
+function mapMockMemoryToDisplay(memory: MockMemory): DisplayMemory {
+  return {
+    title: memory.title,
+    category: memory.category,
+    location: memory.location,
+    date: memory.date,
+    content: memory.content,
+    tags: memory.tags,
+    beforeImage: memory.beforeImage,
+    afterImage: memory.afterImage,
+    author: memory.author,
+    aiMethod: memory.aiMethod
+  };
+}
 
 export default function MemoryDetailPage() {
   const { id } = useParams();
   const router = useRouter();
-  const [memory, setMemory] = useState<any>(null);
+  const [memory, setMemory] = useState<DisplayMemory | null>(null);
   const [loading, setLoading] = useState(true);
   const [liked, setLiked] = useState(false);
 
@@ -42,20 +79,20 @@ export default function MemoryDetailPage() {
       try {
         const response = await fetch(`http://localhost:8080/api/v1/memories/${id}`);
         if (response.ok) {
-          const data = await response.json();
-          // 格式化数据以匹配 UI
-          setMemory({
-            ...data,
-            beforeImage: data.original_image_path ? `http://localhost:8080${data.original_image_path}` : PLACEHOLDERS.OLD_PHOTO,
-            afterImage: data.restored_image_path ? `http://localhost:8080${data.restored_image_path}` : PLACEHOLDERS.AI_RESTORED,
-            content: data.ai_polished_story || data.description,
-            tags: data.tags ? data.tags.split(',') : ["乡村记忆", "AI修复"],
-            aiMethod: "Stable Diffusion XL + DeepSeek-V3",
-            date: new Date(data.created_at).toLocaleDateString()
-          });
+          const data: ApiMemoryDetail = await response.json();
+          setMemory(mapApiMemoryToDisplay(data));
+        } else {
+          const fallbackMemory = typeof id === "string" ? getMockMemoryById(id) : null;
+          if (fallbackMemory) {
+            setMemory(mapMockMemoryToDisplay(fallbackMemory));
+          }
         }
       } catch (err) {
         console.error("Failed to fetch memory", err);
+        const fallbackMemory = typeof id === "string" ? getMockMemoryById(id) : null;
+        if (fallbackMemory) {
+          setMemory(mapMockMemoryToDisplay(fallbackMemory));
+        }
       } finally {
         setLoading(false);
       }

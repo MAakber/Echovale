@@ -40,6 +40,8 @@ export default function MemoryCard({ id, title, category, location, imageUrl, ex
               src={displayImage} 
               alt={title} 
               fill 
+              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1536px) 33vw, 25vw"
+              quality={92}
               className="object-cover"
             />
           </motion.div>

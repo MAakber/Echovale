@@ -1,11 +1,11 @@
 "use client";
 
-import Image from "next/image";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import ImageComparison from "@/components/home/ImageComparison";
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { PLACEHOLDERS } from "@/lib/constants";
 
 export default function Home() {
   const fadeInUp = {
@@ -64,8 +64,8 @@ export default function Home() {
                 transition={{ duration: 0.8, delay: 0.2 }}
               >
                 <ImageComparison 
-                   beforeImage="https://images.unsplash.com/photo-1508804185872-d7badad00f7d?q=80&w=2070"
-                   afterImage="https://images.unsplash.com/photo-1542640244-7e672d6cef21?q=80&w=2070"
+                   beforeImage={PLACEHOLDERS.OLD_PHOTO}
+                   afterImage={PLACEHOLDERS.AI_RESTORED}
                 />
               </motion.div>
             </div>
