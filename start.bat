@@ -24,7 +24,7 @@ if %errorlevel% neq 0 (
 )
 
 echo [1/2] 正在启动 Go 后端 (Gin) 在端口 8080...
-start "Go 后端服务器" cmd /k "cd server && set CGO_ENABLED=1 && go mod tidy && go run main.go"
+start "Go 后端服务器" cmd /k "cd server && go mod tidy && go run main.go"
 
 echo [2/2] 正在启动 Next.js 前端在端口 3000...
 start "Next.js 前端" cmd /k "cd client && npm run dev"

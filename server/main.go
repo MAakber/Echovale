@@ -42,7 +42,10 @@ func initDB() {
 	var err error
 	// 使用绝对路径，确保数据库文件在项目目录下
 	dbPath := filepath.Join("..", "server", "cultural_memory.db")
-	db, err = gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
+	db, err = gorm.Open(sqlite.Dialector{
+		DriverName: "sqlite",
+		DSN:        dbPath,
+	}, &gorm.Config{})
 	if err != nil {
 		log.Fatalf("failed to connect database: %v", err)
 	}
