@@ -61,7 +61,7 @@ export default function ImageComparison({ beforeImage, afterImage }: ImageCompar
           alt="Original" 
           fill 
           sizes="(max-width: 1024px) 100vw, 66vw"
-          quality={92}
+          quality={100}
           className="object-cover"
         />
       </div>
@@ -78,7 +78,7 @@ export default function ImageComparison({ beforeImage, afterImage }: ImageCompar
                 alt="AI Restored" 
                 fill 
               sizes="(max-width: 1024px) 100vw, 66vw"
-              quality={92}
+              quality={100}
                 className="object-cover"
             />
         </div>
