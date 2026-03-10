@@ -7,6 +7,7 @@ import MemoryCard from "@/components/home/MemoryCard";
 import { GallerySkeleton } from "@/components/ui/gallery-skeleton";
 import { motion, AnimatePresence } from "framer-motion";
 import { MOCK_MEMORIES } from "@/lib/data/mockMemories";
+import { API_BASE_URL, resolveAssetUrl } from "@/lib/constants";
 
 interface ApiMemorySummary {
   id: number;
@@ -27,9 +28,9 @@ export default function MemoriesPage() {
     const fetchMemories = async () => {
       setLoading(true);
       try {
-        const url = category === "全部" 
-          ? "http://localhost:8080/api/v1/memories" 
-          : `http://localhost:8080/api/v1/memories?category=${encodeURIComponent(category)}`;
+        const url = category === "全部"
+          ? `${API_BASE_URL}/api/v1/memories`
+          : `${API_BASE_URL}/api/v1/memories?category=${encodeURIComponent(category)}`;
         
         const response = await fetch(url);
         if (response.ok) {
@@ -39,7 +40,7 @@ export default function MemoriesPage() {
             title: m.title,
             category: m.category,
             location: m.location,
-            imageUrl: m.restored_image_path ? `http://localhost:8080${m.restored_image_path}` : "",
+            imageUrl: resolveAssetUrl(m.restored_image_path),
             excerpt: m.ai_polished_story || m.description
           }));
 

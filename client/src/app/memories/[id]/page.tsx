@@ -7,7 +7,7 @@ import { ChevronLeft, MapPin, Calendar, Tag, Share2, Heart, Award } from "lucide
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import ImageComparison from "@/components/home/ImageComparison";
-import { PLACEHOLDERS } from "@/lib/constants";
+import { API_BASE_URL, PLACEHOLDERS, resolveAssetUrl } from "@/lib/constants";
 import { getMockMemoryById, type MockMemory } from "@/lib/data/mockMemories";
 
 interface ApiMemoryDetail {
@@ -45,8 +45,8 @@ function mapApiMemoryToDisplay(data: ApiMemoryDetail): DisplayMemory {
     date: new Date(data.created_at).toLocaleDateString(),
     content: data.ai_polished_story || data.description,
     tags: data.tags ? data.tags.split(",") : ["乡村记忆", "AI修复"],
-    beforeImage: data.original_image_path ? `http://localhost:8080${data.original_image_path}` : PLACEHOLDERS.OLD_PHOTO,
-    afterImage: data.restored_image_path ? `http://localhost:8080${data.restored_image_path}` : PLACEHOLDERS.AI_RESTORED,
+    beforeImage: data.original_image_path ? resolveAssetUrl(data.original_image_path) : PLACEHOLDERS.OLD_PHOTO,
+    afterImage: data.restored_image_path ? resolveAssetUrl(data.restored_image_path) : PLACEHOLDERS.AI_RESTORED,
     author: data.author || "记忆守护者",
     aiMethod: "Stable Diffusion XL + DeepSeek-V3"
   };
@@ -77,7 +77,7 @@ export default function MemoryDetailPage() {
   useEffect(() => {
     const fetchMemory = async () => {
       try {
-        const response = await fetch(`http://localhost:8080/api/v1/memories/${id}`);
+        const response = await fetch(`${API_BASE_URL}/api/v1/memories/${id}`);
         if (response.ok) {
           const data: ApiMemoryDetail = await response.json();
           setMemory(mapApiMemoryToDisplay(data));

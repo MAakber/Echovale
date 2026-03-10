@@ -3,7 +3,7 @@
 import { useState, useRef } from "react";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
-import { PLACEHOLDERS } from "@/lib/constants";
+import { PLACEHOLDERS, resolveAssetUrl } from "@/lib/constants";
 import Image from "next/image";
 import { Upload, Loader2, Sparkles, CheckCircle2, AlertCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -280,7 +280,7 @@ export default function CreatePage() {
                     <span className="text-xs font-bold text-stone-400 dark:text-stone-500 uppercase tracking-wider">AI 修复预览</span>
                     <div className="relative aspect-[4/3] rounded-2xl overflow-hidden border border-stone-100 dark:border-stone-800 shadow-lg">
                       <Image 
-                        src={formData.restoredImage ? `http://localhost:8080${formData.restoredImage}` : PLACEHOLDERS.AI_RESTORED} 
+                        src={formData.restoredImage ? resolveAssetUrl(formData.restoredImage) : PLACEHOLDERS.AI_RESTORED} 
                         alt="AI Generation Preview" 
                         fill 
                         className="object-cover"
