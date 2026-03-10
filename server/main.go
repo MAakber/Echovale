@@ -80,6 +80,8 @@ func main() {
 	}
 
 	// 静态文件服务
+	r.Static("/gallery", "./public/gallery")
+	r.Static("/placeholders", "./public/placeholders")
 	r.Static("/uploads", "../client/public/uploads")
 
 	log.Println("Server starting on http://localhost:8080...")

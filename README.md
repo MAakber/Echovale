@@ -50,6 +50,20 @@ npm run dev
 
 在根目录下双击 `start.bat`，即可一键同时启动后端和前端服务。
 
+如果你习惯从终端启动，直接在项目根目录执行以下命令即可：
+
+```bat
+start.bat
+```
+
+该脚本会先自动清理当前项目上一次残留的 Next.js / Go 开发进程，再重新启动，避免 `.next/dev/lock` 冲突。
+
+如果你想手动停止当前项目的开发服务，可以执行：
+
+```bat
+stop.bat
+```
+
 ---
 
 ## 🛠️ 技术栈构架
@@ -103,11 +117,14 @@ Echovale/
 ├── client/             # Next.js 前端项目
 │   ├── src/app/        # 页面路由 (Gallery, Map, Create)
 │   ├── src/components/ # UI 组件库
-│   └── public/uploads/ # AI 生成资源存放区
+│   └── public/uploads/ # 用户上传资源存放区
 ├── server/             # Go 后端项目
 │   ├── main.go         # 核心 API 与数据库逻辑
+│   ├── public/gallery/ # 示例图库静态资源
+│   ├── public/placeholders/ # 前端占位图静态资源
 │   └── cultural_memory.db # SQLite 数据库文件
-├── start.bat           # 一键启动脚本
+├── start.bat           # 一键启动脚本（支持终端重复执行）
+├── stop.bat            # 一键停止当前项目开发服务
 └── .gitignore          # 经过优化的 Git 忽略配置文件
 ```
 
@@ -144,6 +161,8 @@ Echovale/
 ## ⚡ 启动指南
 
 在 Windows 环境下，直接双击根目录下的 **`start.bat`** 即可同时启动前端 (Next.js) 和后端 (Go) 服务。
+
+如果你从终端执行，推荐在项目根目录运行 `start.bat`，不要重复手动执行 `npm run dev`，否则会因为已有实例占用 `.next/dev/lock` 而报错。
 
 - 前端: `http://localhost:3000`
 - 后端: `http://localhost:8080`

@@ -51,6 +51,37 @@ set PORT=3001
 npm run dev
 ```
 
+### 错误 3.1: Next.js lock 文件冲突
+```
+Unable to acquire lock at client/.next/dev/lock
+```
+
+**解决方法：**
+```bat
+:: 推荐：直接使用项目根目录脚本，它会先清理残留进程再启动
+start.bat
+
+:: 或者手动先停掉当前项目的开发服务
+stop.bat
+start.bat
+```
+
+> ✅ 已修复：`start.bat` 现在会自动停止当前项目残留的 Next / Go 开发进程，并清理 lock 文件。
+
+### 错误 3.2: PowerShell 无法直接执行 npm
+```
+无法加载文件 npm.ps1，因为在此系统上禁止运行脚本
+```
+
+**解决方法：**
+```bat
+:: 不要直接在 PowerShell 里运行 npm
+start.bat
+
+:: 如果只想启动前端，请使用 cmd 方式
+cmd /c "cd /d client && npm.cmd run dev"
+```
+
 ---
 
 ### 错误 4: 数据库文件不存在

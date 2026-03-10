@@ -34,7 +34,7 @@ export default function MemoryCard({ id, title, category, location, imageUrl, ex
           <motion.div
             whileHover={{ scale: 1.1 }}
             transition={{ duration: 0.6, ease: [0.33, 1, 0.68, 1] }}
-            className="w-full h-full"
+            className="relative w-full h-full"
           >
             <Image 
               src={displayImage} 
