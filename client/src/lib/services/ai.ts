@@ -51,6 +51,6 @@ export class AIService {
    */
   static async generateCultureImage(description: string): Promise<AIServiceResponse> {
     // 实际代码中需要调用阿里通义或百度文心的图像生成 API
-    return { content: "Image generation logic placeholder" };
+    return { content: `Image generation logic placeholder: ${description}` };
   }
 }

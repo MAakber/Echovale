@@ -7,6 +7,7 @@ import { ChevronLeft, MapPin, Calendar, Tag, Share2, Heart, Award } from "lucide
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import ImageComparison from "@/components/home/ImageComparison";
+import { useToast } from "@/components/ui/toast-provider";
 import { API_BASE_URL, PLACEHOLDERS, resolveAssetUrl } from "@/lib/constants";
 
 interface ApiMemoryDetail {
@@ -54,6 +55,7 @@ function mapApiMemoryToDisplay(data: ApiMemoryDetail): DisplayMemory {
 export default function MemoryDetailPage() {
   const { id } = useParams();
   const router = useRouter();
+  const toast = useToast();
   const [memory, setMemory] = useState<DisplayMemory | null>(null);
   const [loading, setLoading] = useState(true);
   const [liked, setLiked] = useState(false);
@@ -66,10 +68,11 @@ export default function MemoryDetailPage() {
           const data: ApiMemoryDetail = await response.json();
           setMemory(mapApiMemoryToDisplay(data));
         } else {
+          toast.warning({ title: "未找到该记忆", description: "这条内容可能已被删除或尚未发布。" });
           setMemory(null);
         }
-      } catch (err) {
-        console.error("Failed to fetch memory", err);
+      } catch {
+        toast.error({ title: "记忆详情加载失败", description: "请稍后重试或检查后端服务状态。" });
         setMemory(null);
       } finally {
         setLoading(false);
@@ -77,9 +80,42 @@ export default function MemoryDetailPage() {
     };
 
     if (id) {
-      fetchMemory();
+      void fetchMemory();
     }
-  }, [id]);
+  }, [id, toast]);
+
+  const handleShare = async () => {
+    const shareText = memory ? `${memory.title} | ${memory.location}` : "乡村文化记忆";
+    const shareUrl = typeof window !== "undefined" ? window.location.href : "";
+
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        await navigator.share({
+          title: shareText,
+          text: shareText,
+          url: shareUrl,
+        });
+        toast.info({ title: "分享成功", description: "系统分享面板已调用完成。" });
+        return;
+      } catch {
+        toast.warning({ title: "分享已取消", description: "你可以稍后再次尝试。" });
+        return;
+      }
+    }
+
+    if (typeof navigator !== "undefined" && navigator.clipboard && shareUrl) {
+      try {
+        await navigator.clipboard.writeText(shareUrl);
+        toast.info({ title: "链接已复制", description: "可以直接发送给其他人查看。" });
+        return;
+      } catch {
+        toast.warning({ title: "当前环境不支持自动复制", description: "请手动复制浏览器地址栏链接。" });
+        return;
+      }
+    }
+
+    toast.warning({ title: "当前环境不支持分享", description: "请手动复制浏览器地址栏链接。" });
+  };
 
   if (loading) return (
     <div className="flex min-h-screen items-center justify-center">
@@ -198,7 +234,11 @@ export default function MemoryDetailPage() {
 
                   <div className="grid grid-cols-2 gap-4 pt-4">
                     <button 
-                      onClick={() => setLiked(!liked)}
+                      onClick={() => {
+                        const nextLiked = !liked;
+                        setLiked(nextLiked);
+                        toast.info({ title: nextLiked ? "已加入喜欢" : "已取消喜欢", description: nextLiked ? "这条记忆已加入当前会话偏好。" : "这条记忆已从当前会话偏好移除。" });
+                      }}
                       className={`flex flex-col items-center justify-center gap-2 p-4 rounded-xl border transition-all ${
                         liked 
                           ? "bg-red-50 border-red-200 text-red-500" 
@@ -208,7 +248,7 @@ export default function MemoryDetailPage() {
                       <Heart className={`w-6 h-6 ${liked ? "fill-current" : ""}`} />
                       <span className="text-xs font-semibold">{liked ? "已收藏" : "喜欢"}</span>
                     </button>
-                    <button className="flex flex-col items-center justify-center gap-2 p-4 rounded-xl bg-white dark:bg-stone-800 border border-stone-100 dark:border-stone-700 text-stone-600 dark:text-stone-400 hover:bg-stone-50 transition-all">
+                    <button onClick={() => void handleShare()} className="flex flex-col items-center justify-center gap-2 p-4 rounded-xl bg-white dark:bg-stone-800 border border-stone-100 dark:border-stone-700 text-stone-600 dark:text-stone-400 hover:bg-stone-50 transition-all">
                       <Share2 className="w-6 h-6" />
                       <span className="text-xs font-semibold">分享</span>
                     </button>

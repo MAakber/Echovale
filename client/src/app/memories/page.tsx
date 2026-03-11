@@ -5,6 +5,7 @@ import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import MemoryCard from "@/components/home/MemoryCard";
 import { GallerySkeleton } from "@/components/ui/gallery-skeleton";
+import { useToast } from "@/components/ui/toast-provider";
 import { motion, AnimatePresence } from "framer-motion";
 import { API_BASE_URL, resolveAssetUrl } from "@/lib/constants";
 
@@ -19,6 +20,7 @@ interface ApiMemorySummary {
 }
 
 export default function MemoriesPage() {
+  const toast = useToast();
   const [loading, setLoading] = useState(true);
   const [memories, setMemories] = useState<Array<{
     id: string;
@@ -52,18 +54,19 @@ export default function MemoriesPage() {
 
           setMemories(formatted);
         } else {
+          toast.warning({ title: "记忆列表暂不可用", description: "当前未能从后端读取到该分类内容。" });
           setMemories([]);
         }
       } catch {
-        console.log("Failed to fetch memories from backend");
+        toast.error({ title: "加载记忆失败", description: "请检查后端服务是否已经启动。" });
         setMemories([]);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchMemories();
-  }, [category]);
+    void fetchMemories();
+  }, [category, toast]);
 
   const filteredMemories = memories;
 

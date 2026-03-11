@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
-import { API_BASE_URL } from "@/lib/constants";
+import { useToast } from "@/components/ui/toast-provider";
+import { API_BASE_URL, resolveAssetUrl } from "@/lib/constants";
 import Image from "next/image";
-import { AlertCircle, CheckCircle2, Loader2, Save, Settings2, WandSparkles } from "lucide-react";
+import { CheckCircle2, Loader2, Save, Settings2, Upload, WandSparkles } from "lucide-react";
 
 interface TextProviderConfig {
   provider_name: string;
@@ -38,7 +39,10 @@ interface ProviderTestResult {
   model?: string;
   sample_output?: string;
   preview_url?: string;
+  test_mode?: string;
 }
+
+type ImageTestMode = "text-to-image" | "image-to-image";
 
 const EMPTY_SETTINGS: AIProviderSettings = {
   text: {
@@ -60,19 +64,21 @@ const EMPTY_SETTINGS: AIProviderSettings = {
 };
 
 export default function AdminAIProvidersPage() {
+  const toast = useToast();
   const [settings, setSettings] = useState<AIProviderSettings>(EMPTY_SETTINGS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [textTesting, setTextTesting] = useState(false);
   const [imageTesting, setImageTesting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [imageTestUploading, setImageTestUploading] = useState(false);
+  const [imageTestMode, setImageTestMode] = useState<ImageTestMode>("text-to-image");
+  const [imageTestSource, setImageTestSource] = useState("");
   const [textTestResult, setTextTestResult] = useState<ProviderTestResult | null>(null);
   const [imageTestResult, setImageTestResult] = useState<ProviderTestResult | null>(null);
+  const imageTestInputRef = useRef<HTMLInputElement>(null);
 
-  const loadSettings = async () => {
+  const loadSettings = useCallback(async () => {
     setLoading(true);
-    setError(null);
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/v1/admin/ai-providers`);
@@ -83,15 +89,15 @@ export default function AdminAIProvidersPage() {
       const data: AIProviderSettings = await response.json();
       setSettings(data);
     } catch {
-	      setError("读取 AI 配置失败，请确认后端服务已经启动。");
+      toast.error({ title: "读取 AI 配置失败", description: "请确认后端服务已经启动。" });
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
-    loadSettings();
-  }, []);
+    void loadSettings();
+  }, [loadSettings]);
 
   const updateTextField = <K extends keyof TextProviderConfig>(key: K, value: TextProviderConfig[K]) => {
     setSettings((current) => ({
@@ -109,8 +115,6 @@ export default function AdminAIProvidersPage() {
 
   const handleSave = async () => {
     setSaving(true);
-    setError(null);
-    setNotice(null);
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/v1/admin/ai-providers`, {
@@ -125,9 +129,9 @@ export default function AdminAIProvidersPage() {
       }
 
       setSettings(result);
-	      setNotice("AI 供应商配置已保存，新的创作请求将立即使用这套配置。");
+      toast.info({ title: "AI 配置已保存", description: "新的创作请求将立即使用这套配置。" });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "保存 AI 配置失败");
+      toast.error({ title: "保存 AI 配置失败", description: err instanceof Error ? err.message : "请稍后重试。" });
     } finally {
       setSaving(false);
     }
@@ -135,8 +139,6 @@ export default function AdminAIProvidersPage() {
 
   const handleTestText = async () => {
     setTextTesting(true);
-    setError(null);
-    setNotice(null);
     setTextTestResult(null);
 
     try {
@@ -152,25 +154,28 @@ export default function AdminAIProvidersPage() {
       }
 
       setTextTestResult(result);
-      setNotice("文本供应商测试成功，当前配置可以正常返回内容。");
+      toast.info({ title: "文本供应商测试成功", description: "当前配置可以正常返回内容。" });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "文本供应商测试失败");
+      toast.error({ title: "文本供应商测试失败", description: err instanceof Error ? err.message : "请稍后重试。" });
     } finally {
       setTextTesting(false);
     }
   };
 
   const handleTestImage = async () => {
+    if (imageTestMode === "image-to-image" && !imageTestSource) {
+      toast.warning({ title: "缺少参考图", description: "请先上传一张测试图片，再进行图生图测试。" });
+      return;
+    }
+
     setImageTesting(true);
-    setError(null);
-    setNotice(null);
     setImageTestResult(null);
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/v1/admin/ai-providers/test-image`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image: settings.image }),
+        body: JSON.stringify({ image: settings.image, test_mode: imageTestMode, image_url: imageTestSource }),
       });
 
       const result = await response.json();
@@ -179,11 +184,44 @@ export default function AdminAIProvidersPage() {
       }
 
       setImageTestResult(result);
-      setNotice("图片供应商测试成功，当前配置已经生成了一张测试图。");
+      toast.info({ title: "图片供应商测试成功", description: "当前配置已经生成了一张测试图。" });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "图片供应商测试失败");
+      toast.error({ title: "图片供应商测试失败", description: err instanceof Error ? err.message : "请稍后重试。" });
     } finally {
       setImageTesting(false);
+    }
+  };
+
+  const handleUploadImageTestSource = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    setImageTestUploading(true);
+
+    const data = new FormData();
+    data.append("file", file);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/upload`, {
+        method: "POST",
+        body: data,
+      });
+
+      const result = await response.json();
+      if (!response.ok || !result.url) {
+        throw new Error(result.error || "测试图片上传失败");
+      }
+
+      setImageTestSource(result.url);
+      setImageTestResult(null);
+      toast.info({ title: "测试参考图已上传", description: "现在可以执行图生图测试。" });
+    } catch (err) {
+      toast.error({ title: "上传测试参考图失败", description: err instanceof Error ? err.message : "请稍后重试。" });
+    } finally {
+      event.target.value = "";
+      setImageTestUploading(false);
     }
   };
 
@@ -218,19 +256,6 @@ export default function AdminAIProvidersPage() {
               </button>
             </div>
           </div>
-
-          {(error || notice) && (
-            <div
-              className={`mb-8 flex items-center gap-3 rounded-2xl border px-5 py-4 text-sm ${
-                error
-                  ? "border-red-200 bg-red-50 text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300"
-                  : "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-300"
-              }`}
-            >
-              {error ? <AlertCircle className="h-5 w-5 flex-shrink-0" /> : <CheckCircle2 className="h-5 w-5 flex-shrink-0" />}
-              <span>{error || notice}</span>
-            </div>
-          )}
 
           {loading ? (
             <div className="flex items-center justify-center rounded-[2rem] border border-stone-200 bg-white py-24 dark:border-stone-800 dark:bg-stone-900">
@@ -307,18 +332,89 @@ export default function AdminAIProvidersPage() {
                   <Settings2 className="h-5 w-5 text-stone-400" />
                   <div>
                     <h2 className="text-2xl font-bold">图片 AI 供应商</h2>
-                    <p className="text-sm text-stone-500 dark:text-stone-400">用于生成创作预览图。当前默认免费方案是 Pollinations。若使用 SiliconFlow，请把 Base URL 填成 https://api.siliconflow.cn/v1，后端会自动调用 /images/generations；Kolors 建议尺寸用 1024x1024、960x1280、768x1024、720x1440 或 720x1280。</p>
+                    <p className="text-sm text-stone-500 dark:text-stone-400">用于生成创作预览图。现在支持分别测试文生图和图生图流程。</p>
                   </div>
+                </div>
+
+                <div className="mb-6 space-y-4 rounded-3xl border border-stone-200 bg-stone-50 p-5 dark:border-stone-800 dark:bg-stone-950">
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setImageTestMode("text-to-image");
+                        setImageTestResult(null);
+                      }}
+                      className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                        imageTestMode === "text-to-image"
+                          ? "bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900"
+                          : "border border-stone-300 bg-white text-stone-700 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-200"
+                      }`}
+                    >
+                      文生图测试
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setImageTestMode("image-to-image");
+                        setImageTestResult(null);
+                      }}
+                      className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                        imageTestMode === "image-to-image"
+                          ? "bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900"
+                          : "border border-stone-300 bg-white text-stone-700 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-200"
+                      }`}
+                      title="切换到图生图测试"
+                    >
+                      图生图测试
+                    </button>
+                  </div>
+
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
+                    是否真正支持图生图，将在点击测试后由后端按当前供应商与模型实际判断。若上游不支持参考图输入，会返回明确错误提示。
+                  </div>
+
+                  {imageTestMode === "image-to-image" && (
+                    <div className="space-y-4 rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-800 dark:bg-stone-900">
+                      <input ref={imageTestInputRef} type="file" accept="image/*" className="hidden" onChange={handleUploadImageTestSource} />
+                      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                        <div>
+                          <p className="text-sm font-semibold text-stone-900 dark:text-stone-50">图生图参考素材</p>
+                          <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">上传一张老照片或场景图，测试当前供应商是否能稳定处理参考图。</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => imageTestInputRef.current?.click()}
+                          disabled={imageTestUploading || imageTesting}
+                          className="inline-flex items-center gap-2 rounded-full border border-stone-300 bg-stone-100 px-4 py-2 text-sm font-semibold text-stone-900 transition hover:bg-stone-200 disabled:opacity-50 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-50 dark:hover:bg-stone-700"
+                        >
+                          {imageTestUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                          上传测试图片
+                        </button>
+                      </div>
+
+                      {imageTestSource && (
+                        <div className="overflow-hidden rounded-3xl border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-900/60 dark:bg-emerald-950/30">
+                          <div className="mb-3 flex items-center gap-2 text-sm font-medium text-emerald-700 dark:text-emerald-200">
+                            <CheckCircle2 className="h-4 w-4" />
+                            参考图已准备好
+                          </div>
+                          <div className="relative aspect-[4/3] overflow-hidden rounded-[1.25rem] bg-stone-100 dark:bg-stone-800">
+                            <Image src={resolveAssetUrl(imageTestSource)} alt="图生图测试参考图" fill className="object-cover" unoptimized />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div className="mb-6 flex flex-wrap gap-3">
                   <button
                     onClick={handleTestImage}
-                    disabled={loading || saving || imageTesting}
+                    disabled={loading || saving || imageTesting || imageTestUploading}
                     className="inline-flex items-center gap-2 rounded-full border border-stone-300 bg-stone-100 px-4 py-2 text-sm font-semibold text-stone-900 transition hover:bg-stone-200 disabled:opacity-50 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-50 dark:hover:bg-stone-700"
                   >
                     {imageTesting ? <Loader2 className="h-4 w-4 animate-spin" /> : <WandSparkles className="h-4 w-4" />}
-                    测试图片供应商
+                    {imageTestMode === "image-to-image" ? "测试图生图能力" : "测试文生图能力"}
                   </button>
                 </div>
 
@@ -357,14 +453,20 @@ export default function AdminAIProvidersPage() {
                     <p className="mt-2 text-emerald-800/80 dark:text-emerald-100/80">
                       当前测试配置：{imageTestResult.provider_name || "未命名供应商"} / {imageTestResult.model || "未填写模型"}
                     </p>
+                    <p className="mt-1 text-emerald-800/80 dark:text-emerald-100/80">
+                      测试类型：{imageTestResult.test_mode === "image-to-image" ? "图生图" : "文生图"}
+                    </p>
                     {imageTestResult.preview_url && (
                       <div className="mt-4 overflow-hidden rounded-3xl border border-emerald-200 bg-white p-2 dark:border-emerald-900/60 dark:bg-stone-900/60">
-                        <div className="relative aspect-[4/3] w-full overflow-hidden rounded-[1.25rem] bg-stone-100 dark:bg-stone-800">
+                        <div 
+                          className="relative w-full overflow-hidden rounded-[1.25rem] bg-stone-100 dark:bg-stone-800"
+                          style={{ aspectRatio: `${settings.image.width || 4} / ${settings.image.height || 3}` }}
+                        >
                           <Image
                             src={`${API_BASE_URL}${imageTestResult.preview_url}`}
                             alt="图片供应商测试结果"
                             fill
-                            className="object-cover"
+                            className="object-contain"
                             unoptimized
                           />
                         </div>

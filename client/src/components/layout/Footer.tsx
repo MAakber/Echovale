@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function Footer() {
   return (
     <footer className="bg-stone-50 dark:bg-stone-950 border-t border-stone-200 dark:border-stone-800 pt-16 pb-8 transition-colors duration-300">
@@ -12,9 +14,9 @@ export default function Footer() {
           <div>
             <h4 className="font-semibold mb-4 text-stone-900 dark:text-stone-50">核心入口</h4>
             <ul className="space-y-2 text-sm text-stone-600 dark:text-stone-400">
-              <li><a href="/memories" className="hover:text-stone-900 dark:hover:text-stone-50">数字长廊</a></li>
-              <li><a href="/create" className="hover:text-stone-900 dark:hover:text-stone-50">创作中心</a></li>
-              <li><a href="/map" className="hover:text-stone-900 dark:hover:text-stone-50">时空地图</a></li>
+              <li><Link href="/memories" className="hover:text-stone-900 dark:hover:text-stone-50">数字长廊</Link></li>
+              <li><Link href="/create" className="hover:text-stone-900 dark:hover:text-stone-50">创作中心</Link></li>
+              <li><Link href="/map" className="hover:text-stone-900 dark:hover:text-stone-50">时空地图</Link></li>
             </ul>
           </div>
           <div>

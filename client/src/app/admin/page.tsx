@@ -5,10 +5,9 @@ import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
+import { useToast } from "@/components/ui/toast-provider";
 import { API_BASE_URL, PLACEHOLDERS, resolveAssetUrl } from "@/lib/constants";
 import {
-  AlertCircle,
-  CheckCircle2,
   ImagePlus,
   Loader2,
   PencilLine,
@@ -107,6 +106,7 @@ function toPayload(form: MemoryFormState) {
 }
 
 export default function AdminPage() {
+  const toast = useToast();
   const [memories, setMemories] = useState<MemoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -116,12 +116,9 @@ export default function AdminPage() {
   const [form, setForm] = useState<MemoryFormState>(EMPTY_FORM);
   const [keyword, setKeyword] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("全部");
-  const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
 
   const loadMemories = useCallback(async () => {
     setLoading(true);
-    setError(null);
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/v1/memories`);
@@ -142,11 +139,11 @@ export default function AdminPage() {
         }
       }
     } catch {
-      setError("读取管理数据失败，请确认后端服务已经启动。");
+      toast.error({ title: "读取管理数据失败", description: "请确认后端服务已经启动。" });
     } finally {
       setLoading(false);
     }
-  }, [selectedId]);
+  }, [selectedId, toast]);
 
   useEffect(() => {
     void loadMemories();
@@ -166,15 +163,13 @@ export default function AdminPage() {
   const selectMemory = (memory: MemoryItem) => {
     setSelectedId(memory.id);
     setForm(toFormState(memory));
-    setNotice(`正在编辑「${memory.title}」`);
-    setError(null);
+    toast.info({ title: "已进入编辑模式", description: `正在编辑「${memory.title}」。` });
   };
 
   const resetForm = () => {
     setSelectedId(null);
     setForm(EMPTY_FORM);
-    setNotice("已切换到新建模式");
-    setError(null);
+    toast.info({ title: "已切换模式", description: "当前表单已重置为新建记忆。" });
   };
 
   const updateField = <K extends keyof MemoryFormState>(key: K, value: MemoryFormState[K]) => {
@@ -187,7 +182,6 @@ export default function AdminPage() {
     }
 
     setUploadingField(field);
-    setError(null);
 
     const data = new FormData();
     data.append("file", file);
@@ -204,9 +198,12 @@ export default function AdminPage() {
 
       const result = await response.json();
       updateField(field, result.url || "");
-      setNotice(field === "original_image_path" ? "原始图片上传成功" : "修复图片上传成功");
+      toast.info({
+        title: field === "original_image_path" ? "原始图片上传成功" : "修复图片上传成功",
+        description: "图片地址已经自动写入表单。",
+      });
     } catch {
-      setError("图片上传失败，请稍后重试。");
+      toast.error({ title: "图片上传失败", description: "请稍后重试。" });
     } finally {
       setUploadingField(null);
     }
@@ -214,8 +211,6 @@ export default function AdminPage() {
 
   const handleSave = async () => {
     setSaving(true);
-    setError(null);
-    setNotice(null);
 
     try {
       const payload = toPayload(form);
@@ -236,9 +231,9 @@ export default function AdminPage() {
       await loadMemories();
       setSelectedId(saved.id);
       setForm(toFormState(saved));
-      setNotice(selectedId === null ? "新记忆已创建" : "记忆已更新");
+      toast.info({ title: selectedId === null ? "新记忆已创建" : "记忆已更新", description: "管理台内容已同步到后端数据库。" });
     } catch {
-      setError("保存失败，请检查表单内容或后端状态。");
+      toast.error({ title: "保存失败", description: "请检查表单内容或后端状态。" });
     } finally {
       setSaving(false);
     }
@@ -255,8 +250,6 @@ export default function AdminPage() {
     }
 
     setDeleting(true);
-    setError(null);
-    setNotice(null);
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/v1/memories/${selectedId}`, {
@@ -271,9 +264,9 @@ export default function AdminPage() {
       await loadMemories();
       setSelectedId(null);
       setForm(EMPTY_FORM);
-      setNotice("记忆已删除");
+      toast.info({ title: "记忆已删除", description: "该条内容已从后端数据库移除。" });
     } catch (err) {
-      setError(err instanceof Error ? `删除失败：${err.message}` : "删除失败，请稍后重试。");
+      toast.error({ title: "删除失败", description: err instanceof Error ? err.message : "请稍后重试。" });
     } finally {
       setDeleting(false);
     }
@@ -317,19 +310,6 @@ export default function AdminPage() {
               </button>
             </div>
           </div>
-
-          {(error || notice) && (
-            <div
-              className={`mb-8 flex items-center gap-3 rounded-2xl border px-5 py-4 text-sm ${
-                error
-                  ? "border-red-200 bg-red-50 text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300"
-                  : "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-300"
-              }`}
-            >
-              {error ? <AlertCircle className="h-5 w-5 flex-shrink-0" /> : <CheckCircle2 className="h-5 w-5 flex-shrink-0" />}
-              <span>{error || notice}</span>
-            </div>
-          )}
 
           <div className="grid gap-8 xl:grid-cols-[1.1fr_1.4fr]">
             <section className="rounded-[2rem] border border-stone-200 bg-white p-6 shadow-sm dark:border-stone-800 dark:bg-stone-900">

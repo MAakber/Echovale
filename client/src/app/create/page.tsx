@@ -3,17 +3,47 @@
 import { useState, useRef } from "react";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
+import { useToast } from "@/components/ui/toast-provider";
 import { API_BASE_URL, PLACEHOLDERS, resolveAssetUrl } from "@/lib/constants";
 import Image from "next/image";
-import { Upload, Loader2, Sparkles, CheckCircle2, AlertCircle } from "lucide-react";
+import { Upload, Loader2, Sparkles, CheckCircle2 } from "lucide-react";
 import { useRouter } from "next/navigation";
+
+const AI_TOOL_OPTIONS = [
+  {
+    id: "deepseek",
+    name: "纪实叙事模式",
+    desc: "更偏向真实乡村记忆的文学化整理，并生成纪实风画面",
+    icon: "💎",
+  },
+  {
+    id: "tongyi",
+    name: "视觉重构模式",
+    desc: "根据你的描述重新生成一张氛围完整的乡村视觉画面",
+    icon: "🎨",
+  },
+  {
+    id: "spark",
+    name: "乡音讲述模式",
+    desc: "保留口述感与传说气质，生成更具故事性的画面和文本",
+    icon: "🗣️",
+  },
+] as const;
+
+type AIToolId = (typeof AI_TOOL_OPTIONS)[number]["id"];
+
+function getToolMeta(toolId: AIToolId) {
+  return AI_TOOL_OPTIONS.find((tool) => tool.id === toolId) ?? AI_TOOL_OPTIONS[0];
+}
 
 export default function CreatePage() {
   const router = useRouter();
+  const toast = useToast();
   const [step, setStep] = useState(1);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [selectedTool, setSelectedTool] = useState("tongyi");
+  const [selectedTool, setSelectedTool] = useState<AIToolId>("tongyi");
+  const [aiErrorMessage, setAiErrorMessage] = useState("");
+  const [lastCompletedTool, setLastCompletedTool] = useState<AIToolId | null>(null);
   
   // 状态管理
   const [formData, setFormData] = useState({
@@ -28,18 +58,27 @@ export default function CreatePage() {
   });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const aiRequestLockRef = useRef(false);
+
+  const resetAIResult = () => {
+    setAiErrorMessage("");
+    setLastCompletedTool(null);
+    setFormData((prev) => ({
+      ...prev,
+      restoredImage: "",
+      aiPolishedStory: "",
+    }));
+  };
 
   const nextStep = () => {
     if (step === 1 && !formData.description) {
-      setError("请至少输入一段文字描述");
+      toast.warning({ title: "内容不完整", description: "请至少输入一段文字描述。" });
       return;
     }
-    setError(null);
     setStep(prev => Math.min(prev + 1, 3));
   };
   
   const prevStep = () => {
-    setError(null);
     setStep(prev => Math.max(prev - 1, 1));
   };
 
@@ -49,7 +88,6 @@ export default function CreatePage() {
     if (!file) return;
 
     setIsProcessing(true);
-    setError(null);
 
     const data = new FormData();
     data.append("file", file);
@@ -62,20 +100,32 @@ export default function CreatePage() {
       
       const result = await response.json();
       if (result.url) {
+        resetAIResult();
         setFormData(prev => ({ ...prev, originalImage: result.url }));
+        toast.info({ title: "图片上传成功", description: "老照片素材已加入当前创作流程。" });
       }
     } catch {
-      setError("上传失败，请检查后端服务是否启动");
+      toast.error({ title: "上传失败", description: "请检查后端服务是否启动。" });
     } finally {
       setIsProcessing(false);
     }
   };
 
   // 处理 AI 生成
-  const handleAIProcess = async (mode: string) => {
+  const handleAIProcess = async () => {
+    if (aiRequestLockRef.current || isProcessing) {
+      return;
+    }
+
+    if (!formData.description.trim()) {
+      toast.warning({ title: "内容不完整", description: "请先补充文字描述，再开始 AI 创作。" });
+      setStep(1);
+      return;
+    }
+
+    aiRequestLockRef.current = true;
     setIsProcessing(true);
-    setError(null);
-    setSelectedTool(mode);
+    setAiErrorMessage("");
     
     try {
       const response = await fetch(`${API_BASE_URL}/api/v1/process-ai`, {
@@ -84,7 +134,7 @@ export default function CreatePage() {
         body: JSON.stringify({
           image_url: formData.originalImage,
           prompt: formData.description,
-          mode,
+          mode: selectedTool,
         }),
       });
       
@@ -103,11 +153,15 @@ export default function CreatePage() {
         restoredImage: result.restored_url || prev.originalImage,
         aiPolishedStory: result.polished_story,
       }));
+      setLastCompletedTool(selectedTool);
+      toast.info({ title: "AI 创作完成", description: `${getToolMeta(selectedTool).name} 已完成生成，可以继续发布。` });
       setStep(3);
     } catch (err) {
       const message = err instanceof Error ? err.message : "AI 处理失败，请重试";
-      setError(message);
+      setAiErrorMessage(message);
+      toast.error({ title: "AI 创作失败", description: message });
     } finally {
+      aiRequestLockRef.current = false;
       setIsProcessing(false);
     }
   };
@@ -136,10 +190,11 @@ export default function CreatePage() {
       });
       
       if (response.ok) {
+        toast.info({ title: "发布成功", description: "记忆内容已保存，正在跳转到记忆列表。" });
         router.push("/memories");
       }
     } catch {
-      setError("发布失败，请重试");
+      toast.error({ title: "发布失败", description: "请稍后重试。" });
     } finally {
       setIsProcessing(false);
     }
@@ -169,14 +224,6 @@ export default function CreatePage() {
               </div>
             ))}
           </div>
-
-          {/* Error Message */}
-          {error && (
-            <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl flex items-center gap-3 text-red-600 dark:text-red-400 animate-in fade-in slide-in-from-top-2">
-              <AlertCircle className="w-5 h-5 flex-shrink-0" />
-              <p className="text-sm font-medium">{error}</p>
-            </div>
-          )}
 
           {/* Step Content */}
           <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 p-8 md:p-12 rounded-3xl shadow-xl min-h-[550px] flex flex-col">
@@ -234,7 +281,10 @@ export default function CreatePage() {
                   <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">记忆描述 (文字记录或故事概要)</label>
                   <textarea 
                     value={formData.description}
-                    onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                    onChange={(e) => {
+                      resetAIResult();
+                      setFormData(prev => ({ ...prev, description: e.target.value }));
+                    }}
                     className="w-full bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-xl p-4 h-32 text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-stone-500/20 transition-all placeholder:text-stone-400 text-sm leading-relaxed"
                     placeholder="例如：还记得小时候村口的那棵老槐树，夏天全村人都在树下纳凉..."
                   ></textarea>
@@ -246,33 +296,58 @@ export default function CreatePage() {
               <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
                 <div className="text-center mb-10">
                   <h2 className="text-3xl font-bold mb-4 font-serif">选择 AI 实验工具</h2>
-                  <p className="text-stone-500 dark:text-stone-400">选择大赛指定的国产 AI 模型，为您的素材注入灵魂。</p>
+                  <p className="text-stone-500 dark:text-stone-400">先选择创作模式，再由下方按钮统一发起生成，避免误触和重复提交。</p>
+                </div>
+
+                <div className="rounded-3xl border border-stone-200 bg-stone-50/80 p-5 dark:border-stone-800 dark:bg-stone-950/70">
+                  <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-[0.2em] text-stone-400 dark:text-stone-500">当前流程</p>
+                      <p className="mt-2 text-lg font-semibold text-stone-900 dark:text-stone-50">已选择：{getToolMeta(selectedTool).name}</p>
+                      <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">{getToolMeta(selectedTool).desc}</p>
+                    </div>
+                    <div className="rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm text-stone-600 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-300">
+                      {formData.originalImage ? "将结合已上传图片与文字描述生成画面" : "未上传图片时，将仅根据文字描述生成画面"}
+                    </div>
+                  </div>
+
+                  {lastCompletedTool === selectedTool && formData.aiPolishedStory && (
+                    <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-200">
+                      当前模式最近一次已成功生成结果；若素材已更新，可重新执行一次创作。
+                    </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 gap-4">
-                  {[
-                    { id: "deepseek", name: "纪实叙事模式", desc: "更偏向真实乡村记忆的文学化整理，并生成纪实风画面", icon: "💎" },
-                    { id: "tongyi", name: "视觉重构模式", desc: "根据你的描述重新生成一张氛围完整的乡村视觉画面", icon: "🎨" },
-                    { id: "spark", name: "乡音讲述模式", desc: "保留口述感与传说气质，生成更具故事性的画面和文本", icon: "🗣️" }
-                  ].map((tool) => (
-                    <div 
+                  {AI_TOOL_OPTIONS.map((tool) => (
+                    <button
+                      type="button"
                       key={tool.id} 
                       onClick={() => {
-                        void handleAIProcess(tool.id);
+                        setSelectedTool(tool.id);
+                        setAiErrorMessage("");
                       }}
-                      className={`p-6 bg-stone-50 dark:bg-stone-950 border rounded-2xl hover:bg-stone-100 dark:hover:bg-stone-800 cursor-pointer transition-all flex items-center gap-6 group relative overflow-hidden ${
+                      disabled={isProcessing}
+                      className={`p-6 bg-stone-50 dark:bg-stone-950 border rounded-2xl text-left transition-all flex items-center gap-6 group relative overflow-hidden ${
                         selectedTool === tool.id
-                          ? "border-stone-900 dark:border-stone-100"
-                          : "border-stone-200 dark:border-stone-800"
+                          ? "border-stone-900 dark:border-stone-100 bg-white dark:bg-stone-900"
+                          : "border-stone-200 dark:border-stone-800 hover:bg-stone-100 dark:hover:bg-stone-800"
                       }`}
+                      aria-pressed={selectedTool === tool.id}
                     >
                       <div className="text-3xl">{tool.icon}</div>
                       <div className="flex-grow">
                         <div className="font-bold">{tool.name}</div>
                         <div className="text-sm text-stone-500 dark:text-stone-500">{tool.desc}</div>
                       </div>
-                      <div className="w-6 h-6 border-2 border-stone-300 dark:border-stone-700 rounded-full group-hover:border-stone-900 dark:group-hover:border-stone-100 transition-colors flex items-center justify-center">
-                        <div className="w-2.5 h-2.5 bg-stone-900 dark:bg-stone-50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                      <div className={`w-6 h-6 border-2 rounded-full transition-colors flex items-center justify-center ${
+                        selectedTool === tool.id
+                          ? "border-stone-900 dark:border-stone-100"
+                          : "border-stone-300 dark:border-stone-700 group-hover:border-stone-900 dark:group-hover:border-stone-100"
+                      }`}>
+                        <div className={`w-2.5 h-2.5 bg-stone-900 dark:bg-stone-50 rounded-full transition-opacity ${
+                          selectedTool === tool.id ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                        }`}></div>
                       </div>
                       
                        {isProcessing && selectedTool === tool.id && (
@@ -280,7 +355,7 @@ export default function CreatePage() {
                            <Loader2 className="w-6 h-6 animate-spin text-stone-900" />
                         </div>
                       )}
-                    </div>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -347,11 +422,11 @@ export default function CreatePage() {
                   </div>
                 )}
                 <button 
-                  onClick={step === 3 ? handleSubmit : nextStep}
+                  onClick={step === 3 ? handleSubmit : step === 2 ? () => void handleAIProcess() : nextStep}
                   disabled={isProcessing}
                   className="px-12 py-3 bg-stone-900 dark:bg-stone-50 text-white dark:text-stone-900 rounded-full font-bold hover:bg-stone-800 dark:hover:bg-stone-200 transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-xl shadow-stone-900/10 dark:shadow-none"
                 >
-                  {step === 3 ? "发布到长廊" : "下一步 →"}
+                  {step === 3 ? "发布到长廊" : step === 2 ? (isProcessing ? "AI 创作中..." : aiErrorMessage ? "重新开始创作" : "开始 AI 创作 →") : "下一步 →"}
                 </button>
               </div>
             </div>

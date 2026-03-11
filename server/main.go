@@ -250,9 +250,6 @@ func generateVisualAssetWithSiliconFlow(ctx context.Context, config imageGenerat
 	if strings.TrimSpace(config.Model) == "" {
 		return "", fmt.Errorf("SiliconFlow image model is not configured")
 	}
-	if strings.TrimSpace(imageURL) != "" {
-		return "", fmt.Errorf("当前 SiliconFlow 图片供应商分支只接入了文生图，暂不支持带参考图测试")
-	}
 	if err := validateSiliconFlowImageConfig(config); err != nil {
 		return "", err
 	}
@@ -401,8 +398,10 @@ type aiProcessResponse struct {
 }
 
 type aiProviderTestRequest struct {
-	Text  openRouterConfig      `json:"text"`
-	Image imageGenerationConfig `json:"image"`
+	Text     openRouterConfig      `json:"text"`
+	Image    imageGenerationConfig `json:"image"`
+	TestMode string                `json:"test_mode,omitempty"`
+	ImageURL string                `json:"image_url,omitempty"`
 }
 
 type aiProviderTestResponse struct {
@@ -412,6 +411,7 @@ type aiProviderTestResponse struct {
 	Model        string `json:"model,omitempty"`
 	SampleOutput string `json:"sample_output,omitempty"`
 	PreviewURL   string `json:"preview_url,omitempty"`
+	TestMode     string `json:"test_mode,omitempty"`
 }
 
 func loadEnvFile(path string) {
@@ -707,6 +707,10 @@ func isOpenRouterImageProvider(config imageGenerationConfig) bool {
 	providerName := strings.ToLower(strings.TrimSpace(config.ProviderName))
 	baseURL := strings.ToLower(strings.TrimSpace(config.BaseURL))
 	return strings.Contains(providerName, "openrouter") || strings.Contains(baseURL, "openrouter.ai")
+}
+
+func supportsNativeImageToImage(config imageGenerationConfig) bool {
+	return isOpenRouterImageProvider(config)
 }
 
 func buildAspectRatio(width, height string) string {
@@ -1245,21 +1249,46 @@ func testImageAIProvider(c *gin.Context) {
 	}
 
 	config := normalizeImageGenerationConfig(payload.Image)
+	testMode := strings.TrimSpace(strings.ToLower(payload.TestMode))
+	if testMode == "" {
+		testMode = "text-to-image"
+	}
+
+	testPrompt := "乡村田野、白墙黛瓦、晴天、真实摄影感"
+	imageURL := strings.TrimSpace(payload.ImageURL)
+	if testMode == "image-to-image" {
+		if !supportsNativeImageToImage(config) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "当前图片供应商不支持原生图生图测试。请改用支持参考图输入的供应商，例如 OpenRouter 图片模型。"})
+			return
+		}
+		if imageURL == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "图生图测试需要先上传一张参考图片"})
+			return
+		}
+		testPrompt = "请参考上传的乡村老照片，生成一张保留原始场景气质、构图更完整、细节更清晰的乡村画面"
+	}
+
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 120*time.Second)
 	defer cancel()
 
-	previewURL, err := generateVisualAssetWithConfig(ctx, config, "乡村田野、白墙黛瓦、晴天、真实摄影感", "", "deepseek")
+	previewURL, err := generateVisualAssetWithConfig(ctx, config, testPrompt, imageURL, "deepseek")
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
+	message := "图片供应商测试成功"
+	if testMode == "image-to-image" {
+		message = "图生图测试成功"
+	}
+
 	c.JSON(http.StatusOK, aiProviderTestResponse{
 		Success:      true,
-		Message:      "图片供应商测试成功",
+		Message:      message,
 		ProviderName: config.ProviderName,
 		Model:        config.Model,
 		PreviewURL:   previewURL,
+		TestMode:     testMode,
 	})
 }
 
