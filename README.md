@@ -29,6 +29,7 @@ cd Echovale
 
 ```bash
 cd server
+# 可选：按需修改 server/.env 中的 OpenRouter 配置
 # 下载依赖 (主要包含 Gin, GORM, UUID 等)
 go mod tidy
 # 运行后端服务器 (默认在 http://localhost:8080 启动)
@@ -96,7 +97,7 @@ stop.bat
 ### 2. AI 创作中心 (Creative Studio)
 
 - **老照片修复**: 上传受损或褪色的老照片，AI 自动进行色彩还原与清晰度增强。
-- **文字深度润色**: 输入碎片化的记忆描述，调用 **DeepSeek** 等大模型生成优美的散文式叙事。
+- **文字深度润色**: 输入碎片化的记忆描述，后端通过 **OpenRouter** 调用 **DeepSeek 免费模型** 生成优美的散文式叙事。
 
 ### 3. 时空地图 (Spatio-temporal Map)
 
@@ -107,6 +108,11 @@ stop.bat
 
 - **全站暗色模式**: 深度定制的“宣纸黑”中式美学配色。
 - **响应式设计**: 完美适配桌面与移动浏览器。
+
+### 5. 管理台配置能力
+
+- **记忆管理台**: 在本地直接维护 SQLite 中的乡村记忆数据。
+- **AI 配置台**: 通过 `/admin/ai-providers` 页面修改文本与图片 API 供应商名称、Base URL、模型和 API Key，保存后立即生效。
 
 ---
 
@@ -152,7 +158,7 @@ Echovale/
 - [X] 项目初始化与环境搭建 (Next.js + Go/Gin)
 - [X] 快速启动脚本 (根目录下 `start.bat`)
 - [X] 前后端基础架构开发 (已集成本地文件上传 & Go 后端基础 API)
-- [ ] 指定 AI 接口集成 (Go 侧对接 DeepSeek/通义等)
+- [X] 指定 AI 接口集成 (Go 侧已对接 OpenRouter DeepSeek 免费模型)
 - [ ] 首页与记忆采集前端页面开发
 - [ ] 时空地图与展示功能实现
 - [ ] 虚拟展厅初版开发
@@ -167,3 +173,22 @@ Echovale/
 - 前端: `http://localhost:3000`
 - 后端: `http://localhost:8080`
 - 接口测试: `http://localhost:8080/ping`
+
+## 🔐 AI 配置
+
+Go 后端会在启动时自动读取 `server/.env`，当前 `POST /api/v1/process-ai` 已接入 OpenRouter 聊天补全接口，默认模型为 `deepseek/deepseek-chat-v3-0324:free`。
+
+同一接口现在也会调用真实图片生成链路。考虑到 OpenRouter 的图片输出模型当前不是免费方案，项目默认改为通过 Pollinations 的免费接口生成图片，并把结果保存到 `client/public/uploads` 后再返回前端展示。
+
+可配置项：
+
+- `OPENROUTER_API_KEY`: OpenRouter 密钥
+- `OPENROUTER_MODEL`: 模型 ID
+- `OPENROUTER_SITE_URL`: 站点地址，会作为 OpenRouter 请求头传递
+- `OPENROUTER_SITE_NAME`: 站点名称，会作为 OpenRouter 请求头传递
+- `AI_IMAGE_BASE_URL`: 图片生成接口地址，默认是 `https://image.pollinations.ai/prompt`
+- `AI_IMAGE_MODEL`: 图片生成模型名，默认是 `flux`
+- `AI_IMAGE_WIDTH`: 生成图片宽度
+- `AI_IMAGE_HEIGHT`: 生成图片高度
+
+如果你后续改回 OpenRouter 图片模型，需要另外准备可用的图片模型和相应计费额度。

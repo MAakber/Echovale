@@ -6,7 +6,6 @@ import Footer from "@/components/layout/Footer";
 import MemoryCard from "@/components/home/MemoryCard";
 import { GallerySkeleton } from "@/components/ui/gallery-skeleton";
 import { motion, AnimatePresence } from "framer-motion";
-import { MOCK_MEMORIES } from "@/lib/data/mockMemories";
 import { API_BASE_URL, resolveAssetUrl } from "@/lib/constants";
 
 interface ApiMemorySummary {
@@ -21,7 +20,14 @@ interface ApiMemorySummary {
 
 export default function MemoriesPage() {
   const [loading, setLoading] = useState(true);
-  const [memories, setMemories] = useState(MOCK_MEMORIES);
+  const [memories, setMemories] = useState<Array<{
+    id: string;
+    title: string;
+    category: string;
+    location: string;
+    imageUrl: string;
+    excerpt: string;
+  }>>([]);
   const [category, setCategory] = useState("全部");
 
   useEffect(() => {
@@ -44,15 +50,13 @@ export default function MemoriesPage() {
             excerpt: m.ai_polished_story || m.description
           }));
 
-          if (category === "全部") {
-            setMemories([...MOCK_MEMORIES, ...formatted]);
-          } else {
-            const mockFiltered = MOCK_MEMORIES.filter(m => m.category === category);
-            setMemories([...mockFiltered, ...formatted]);
-          }
+          setMemories(formatted);
+        } else {
+          setMemories([]);
         }
       } catch {
-        console.log("Using mock data as backend is unreachable");
+        console.log("Failed to fetch memories from backend");
+        setMemories([]);
       } finally {
         setLoading(false);
       }

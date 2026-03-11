@@ -35,6 +35,7 @@ export default function Header() {
           <Link href="/memories" className="text-sm font-medium text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-50 transition-colors">数字长廊</Link>
           <Link href="/create" className="text-sm font-medium text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-50 transition-colors">AI 创作</Link>
           <Link href="/map" className="text-sm font-medium text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-50 transition-colors">时空地图</Link>
+          <Link href="/admin" className="text-sm font-medium text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-50 transition-colors">管理台</Link>
         </nav>
 
         <div className="flex items-center gap-4">

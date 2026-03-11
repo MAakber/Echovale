@@ -8,7 +8,6 @@ import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import ImageComparison from "@/components/home/ImageComparison";
 import { API_BASE_URL, PLACEHOLDERS, resolveAssetUrl } from "@/lib/constants";
-import { getMockMemoryById, type MockMemory } from "@/lib/data/mockMemories";
 
 interface ApiMemoryDetail {
   id: number;
@@ -52,21 +51,6 @@ function mapApiMemoryToDisplay(data: ApiMemoryDetail): DisplayMemory {
   };
 }
 
-function mapMockMemoryToDisplay(memory: MockMemory): DisplayMemory {
-  return {
-    title: memory.title,
-    category: memory.category,
-    location: memory.location,
-    date: memory.date,
-    content: memory.content,
-    tags: memory.tags,
-    beforeImage: memory.beforeImage,
-    afterImage: memory.afterImage,
-    author: memory.author,
-    aiMethod: memory.aiMethod
-  };
-}
-
 export default function MemoryDetailPage() {
   const { id } = useParams();
   const router = useRouter();
@@ -82,17 +66,11 @@ export default function MemoryDetailPage() {
           const data: ApiMemoryDetail = await response.json();
           setMemory(mapApiMemoryToDisplay(data));
         } else {
-          const fallbackMemory = typeof id === "string" ? getMockMemoryById(id) : null;
-          if (fallbackMemory) {
-            setMemory(mapMockMemoryToDisplay(fallbackMemory));
-          }
+          setMemory(null);
         }
       } catch (err) {
         console.error("Failed to fetch memory", err);
-        const fallbackMemory = typeof id === "string" ? getMockMemoryById(id) : null;
-        if (fallbackMemory) {
-          setMemory(mapMockMemoryToDisplay(fallbackMemory));
-        }
+        setMemory(null);
       } finally {
         setLoading(false);
       }

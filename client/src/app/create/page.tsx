@@ -3,7 +3,7 @@
 import { useState, useRef } from "react";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
-import { PLACEHOLDERS, resolveAssetUrl } from "@/lib/constants";
+import { API_BASE_URL, PLACEHOLDERS, resolveAssetUrl } from "@/lib/constants";
 import Image from "next/image";
 import { Upload, Loader2, Sparkles, CheckCircle2, AlertCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -13,6 +13,7 @@ export default function CreatePage() {
   const [step, setStep] = useState(1);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedTool, setSelectedTool] = useState("tongyi");
   
   // 状态管理
   const [formData, setFormData] = useState({
@@ -54,7 +55,7 @@ export default function CreatePage() {
     data.append("file", file);
 
     try {
-      const response = await fetch("http://localhost:8080/api/v1/upload", {
+      const response = await fetch(`${API_BASE_URL}/api/v1/upload`, {
         method: "POST",
         body: data,
       });
@@ -63,7 +64,7 @@ export default function CreatePage() {
       if (result.url) {
         setFormData(prev => ({ ...prev, originalImage: result.url }));
       }
-    } catch (err) {
+    } catch {
       setError("上传失败，请检查后端服务是否启动");
     } finally {
       setIsProcessing(false);
@@ -71,21 +72,32 @@ export default function CreatePage() {
   };
 
   // 处理 AI 生成
-  const handleAIProcess = async () => {
+  const handleAIProcess = async (mode: string) => {
     setIsProcessing(true);
     setError(null);
+    setSelectedTool(mode);
     
     try {
-      const response = await fetch("http://localhost:8080/api/v1/process-ai", {
+      const response = await fetch(`${API_BASE_URL}/api/v1/process-ai`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           image_url: formData.originalImage,
           prompt: formData.description,
+          mode,
         }),
       });
       
       const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "AI 处理失败，请重试");
+      }
+
+      if (!result.polished_story) {
+        throw new Error("AI 未返回可用的创作内容");
+      }
+
       setFormData(prev => ({
         ...prev,
         restoredImage: result.restored_url || prev.originalImage,
@@ -93,7 +105,8 @@ export default function CreatePage() {
       }));
       setStep(3);
     } catch (err) {
-      setError("AI 处理失败，请重试");
+      const message = err instanceof Error ? err.message : "AI 处理失败，请重试";
+      setError(message);
     } finally {
       setIsProcessing(false);
     }
@@ -104,7 +117,7 @@ export default function CreatePage() {
     setIsProcessing(true);
     
     try {
-      const response = await fetch("http://localhost:8080/api/v1/memories", {
+      const response = await fetch(`${API_BASE_URL}/api/v1/memories`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -125,7 +138,7 @@ export default function CreatePage() {
       if (response.ok) {
         router.push("/memories");
       }
-    } catch (err) {
+    } catch {
       setError("发布失败，请重试");
     } finally {
       setIsProcessing(false);
@@ -195,7 +208,7 @@ export default function CreatePage() {
                       <Loader2 className="w-10 h-10 mb-4 animate-spin text-stone-400" />
                     ) : formData.originalImage ? (
                       <div className="relative w-full aspect-square max-h-32 mb-4">
-                        <Image src={`http://localhost:8080${formData.originalImage}`} alt="Uploaded" fill className="object-cover rounded-lg" />
+                        <Image src={resolveAssetUrl(formData.originalImage)} alt="Uploaded" fill className="object-cover rounded-lg" />
                         <div className="absolute -top-2 -right-2 bg-green-500 text-white rounded-full p-1 shadow-lg">
                           <CheckCircle2 className="w-4 h-4" />
                         </div>
@@ -238,14 +251,20 @@ export default function CreatePage() {
 
                 <div className="grid grid-cols-1 gap-4">
                   {[
-                    { id: "deepseek", name: "DeepSeek 文学专家", desc: "极致的语义理解，将碎片叙事华为优美散文", icon: "💎" },
-                    { id: "tongyi", name: "通义万相 视觉重构", desc: "基于文字描述生成极具氛围感的乡村插画", icon: "🎨" },
-                    { id: "spark", name: "讯飞星火 方言翻译", desc: "精准识别方言语序，保留地道的文化韵味", icon: "🗣️" }
-                  ].map((tool, i) => (
+                    { id: "deepseek", name: "纪实叙事模式", desc: "更偏向真实乡村记忆的文学化整理，并生成纪实风画面", icon: "💎" },
+                    { id: "tongyi", name: "视觉重构模式", desc: "根据你的描述重新生成一张氛围完整的乡村视觉画面", icon: "🎨" },
+                    { id: "spark", name: "乡音讲述模式", desc: "保留口述感与传说气质，生成更具故事性的画面和文本", icon: "🗣️" }
+                  ].map((tool) => (
                     <div 
                       key={tool.id} 
-                      onClick={handleAIProcess}
-                      className="p-6 bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-2xl hover:bg-stone-100 dark:hover:bg-stone-800 cursor-pointer transition-all flex items-center gap-6 group relative overflow-hidden"
+                      onClick={() => {
+                        void handleAIProcess(tool.id);
+                      }}
+                      className={`p-6 bg-stone-50 dark:bg-stone-950 border rounded-2xl hover:bg-stone-100 dark:hover:bg-stone-800 cursor-pointer transition-all flex items-center gap-6 group relative overflow-hidden ${
+                        selectedTool === tool.id
+                          ? "border-stone-900 dark:border-stone-100"
+                          : "border-stone-200 dark:border-stone-800"
+                      }`}
                     >
                       <div className="text-3xl">{tool.icon}</div>
                       <div className="flex-grow">
@@ -256,7 +275,7 @@ export default function CreatePage() {
                         <div className="w-2.5 h-2.5 bg-stone-900 dark:bg-stone-50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"></div>
                       </div>
                       
-                      {isProcessing && i === 1 && (
+                       {isProcessing && selectedTool === tool.id && (
                         <div className="absolute inset-0 bg-stone-900/5 backdrop-blur-[1px] flex items-center justify-center">
                            <Loader2 className="w-6 h-6 animate-spin text-stone-900" />
                         </div>
@@ -277,7 +296,9 @@ export default function CreatePage() {
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-3xl mb-8">
                   <div className="space-y-3">
-                    <span className="text-xs font-bold text-stone-400 dark:text-stone-500 uppercase tracking-wider">AI 修复预览</span>
+                    <span className="text-xs font-bold text-stone-400 dark:text-stone-500 uppercase tracking-wider">
+                      {formData.restoredImage && formData.restoredImage !== formData.originalImage ? "AI 生成画面" : "图片预览"}
+                    </span>
                     <div className="relative aspect-[4/3] rounded-2xl overflow-hidden border border-stone-100 dark:border-stone-800 shadow-lg">
                       <Image 
                         src={formData.restoredImage ? resolveAssetUrl(formData.restoredImage) : PLACEHOLDERS.AI_RESTORED} 
@@ -290,7 +311,7 @@ export default function CreatePage() {
                   <div className="space-y-3">
                     <span className="text-xs font-bold text-stone-400 dark:text-stone-500 uppercase tracking-wider">AI 润色文本</span>
                     <div className="h-full p-6 bg-stone-50 dark:bg-stone-950 border border-stone-100 dark:border-stone-800 rounded-2xl text-left border-l-4 border-l-stone-900 dark:border-l-stone-100 italic text-stone-700 dark:text-stone-300 leading-relaxed text-sm">
-                      {formData.aiPolishedStory || "AI 正在思考更优美的表达方式..."}
+                      {formData.aiPolishedStory || "AI 正在生成更完整的乡村叙事文本..."}
                     </div>
                   </div>
                 </div>

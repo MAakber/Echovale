@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Header from "@/components/layout/Header";
+import { API_BASE_URL } from "@/lib/constants";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, Filter, MapPin, Info } from "lucide-react";
 
@@ -14,7 +15,7 @@ export default function MapPage() {
     setIsLoaded(true);
     const fetchMemories = async () => {
       try {
-        const response = await fetch("http://localhost:8080/api/v1/memories");
+        const response = await fetch(`${API_BASE_URL}/api/v1/memories`);
         if (response.ok) {
           const data = await response.json();
           const mapped = data.map((m: any) => ({

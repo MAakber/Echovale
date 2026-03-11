@@ -5,6 +5,7 @@ CHCP 65001 > nul
 set "ROOT=%~dp0"
 set "CLIENT_DIR=%ROOT%client"
 set "SERVER_DIR=%ROOT%server"
+set "SERVER_EXE_NAME=cultural-memory-server.exe"
 set "SILENT=0"
 
 if /I "%~1"=="--silent" set "SILENT=1"
@@ -16,6 +17,7 @@ if "%SILENT%"=="0" (
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "$client = '%CLIENT_DIR%';" ^
   "$server = '%SERVER_DIR%';" ^
+        "$serverExeName = '%SERVER_EXE_NAME%';" ^
     "$processes = Get-CimInstance Win32_Process;" ^
     "$seedIds = $processes | Where-Object {" ^
     "  ($_.CommandLine -like ('*' + $client + '*npm*.cmd run dev*')) -or" ^
@@ -23,7 +25,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
     "  ($_.CommandLine -like ('*' + $client + '*next*dev*')) -or" ^
     "  ($_.CommandLine -like ('*' + $client + '*start-server.js*')) -or" ^
     "  ($_.CommandLine -like ('*' + $server + '*go run main.go*')) -or" ^
-    "  ($_.CommandLine -like ('*' + $server + '*server.exe*'))" ^
+    "  ($_.CommandLine -like ('*' + $server + '*go run .*')) -or" ^
+        "  ($_.CommandLine -like ('*' + $server + '*server.exe*')) -or" ^
+        "  ($_.Name -eq $serverExeName)" ^
     "} | Select-Object -ExpandProperty ProcessId -Unique;" ^
     "$toStop = New-Object 'System.Collections.Generic.HashSet[int]';" ^
     "$queue = New-Object 'System.Collections.Generic.Queue[int]';" ^
@@ -35,7 +39,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
     "  }" ^
     "};" ^
     "$toStop | Sort-Object -Descending | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue };" ^
-    "Get-NetTCPConnection -LocalPort 3000,3001,8080 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique | ForEach-Object { if ($_ -gt 0) { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue } }"
+    "1..6 | ForEach-Object {" ^
+    "  Get-NetTCPConnection -LocalPort 3000,3001,8080 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique | ForEach-Object { if ($_ -gt 0) { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue } };" ^
+    "  Start-Sleep -Milliseconds 400;" ^
+    "}"
 
     for %%P in (3000 3001 8080) do (
         for /f %%I in ('powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-NetTCPConnection -LocalPort %%P -ErrorAction SilentlyContinue ^| Select-Object -ExpandProperty OwningProcess -Unique"') do (

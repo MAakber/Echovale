@@ -99,6 +99,89 @@ go run main.go
 
 ---
 
+### 错误 5: AI 处理失败 / OpenRouter 配置错误
+```
+AI 处理失败，请检查 OpenRouter 配置或稍后重试
+```
+
+如果你看到类似下面这种报错：
+
+```
+openrouter request failed: Post "https://openrouter.ai/api/v1/chat/completions": EOF
+```
+
+它的意思不是“模型名错了”，而是“HTTP 连接已经发出去了，但在服务端返回完整响应之前，连接被提前断开了”。这通常是以下几类原因：
+
+- 代理软件或网络中间层临时断连
+- OpenRouter 上游瞬时抖动
+- 本机网络可以连上 443，但 TLS/HTTP 请求在中途被重置
+
+现在后端已经对这类错误自动重试一次；如果仍然失败，优先检查：
+
+- 是否正在使用代理、系统 VPN、Mihomo、Clash 一类网络中间层
+- 当前网络是否能稳定访问 `https://openrouter.ai`
+- 稍等几秒后再次测试，确认是不是瞬时抖动
+
+如果你看到类似下面这种报错：
+
+```
+decode response failed: provider returned invalid or incomplete JSON (status 524, body <empty body>): unexpected end of JSON input
+```
+
+它的实际含义通常是：
+
+- 不是你提交的 JSON 有问题
+- 而是上游服务超时了，最终回了一个 `524`，并且响应体是空的
+- 之前后端会把这种情况误报成“JSON 解析失败”，现在已经改成优先识别为“上游超时”，并自动重试一次
+
+`524` 一般表示：
+
+- 你的自定义供应商或它背后的网关处理太慢
+- 上游模型正在拥塞或排队
+- 反向代理/CDN 在等待上游响应时超时
+
+优先检查：
+
+- 当前供应商网关本身是否稳定
+- 当前模型是否响应特别慢
+- 稍后重试是否恢复
+- 是否需要换一个更快的模型，或让供应商提高超时时间
+
+**解决方法：**
+```bash
+cd server
+# 检查 server/.env 是否存在且 OPENROUTER_API_KEY 是否有效
+go run main.go
+```
+
+检查项：
+- `server/.env` 中的 `OPENROUTER_API_KEY` 是否为空
+- `OPENROUTER_MODEL` 是否为可用模型 ID
+- 当前网络是否可以访问 `https://openrouter.ai`
+
+### 错误 6: AI 图片创作失败
+```
+AI 图片创作失败，请稍后重试
+```
+
+检查项：
+- `server/.env` 中的 `AI_IMAGE_BASE_URL` 是否可访问
+- `server/.env` 中的 `AI_IMAGE_MODEL` 是否与当前图片供应商匹配（默认免费方案为 Pollinations 的 `flux`）
+- 如果你改成 OpenRouter 图片模型，确认 `OPENROUTER_API_KEY` 或 `AI_IMAGE_API_KEY` 有效且账户可计费
+- 默认免费方案下，确认当前网络是否可以访问 `https://image.pollinations.ai`
+
+### 错误 7: 管理台保存 AI 配置失败
+```
+保存 AI 配置失败
+```
+
+检查项：
+- `server/ai_provider_config.json` 是否有写入权限
+- 后端服务是否已重启到最新代码
+- 管理台请求的后端地址是否仍然是 `http://localhost:8080`
+
+---
+
 ## 📋 完整重置步骤
 
 如果问题持续，尝试完全重置：

@@ -25,6 +25,7 @@ start.bat
 
 ```bash
 cd server
+:: 可按需修改 server/.env 中的 OpenRouter 配置
 go mod download
 go mod tidy
 go run main.go
@@ -121,9 +122,10 @@ r.Run(":8081") // 改为其他端口
 
 1. **首次运行**：确保先执行 `npm install` 安装前端依赖
 2. **数据库**：首次运行时会自动创建 SQLite 数据库文件
-3. **上传目录**：确保 `client/public/uploads` 目录存在且有写入权限
-4. **CORS**：后端已配置允许 `http://localhost:3000` 访问
-5. **Go 依赖**：首次运行后端前执行 `go mod tidy`
+3. **AI 配置**：后端启动时会自动读取 `server/.env`，文本默认通过 OpenRouter 调用 DeepSeek 免费模型，图片默认通过 Pollinations 免费接口生成；如果你改用 OpenRouter 图片模型，需要额外注意计费
+4. **上传目录**：确保 `client/public/uploads` 目录存在且有写入权限
+5. **CORS**：后端已配置允许 `http://localhost:3000` 访问
+6. **Go 依赖**：首次运行后端前执行 `go mod tidy`
 
 ## 故障排查
 
