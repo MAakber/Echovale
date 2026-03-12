@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"log"
 	"time"
 
@@ -108,7 +109,7 @@ func seedDefaultMemories(database *gorm.DB) {
 			continue
 		}
 
-		if err != nil && err != gorm.ErrRecordNotFound {
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			log.Printf("failed to query seed memory %q: %v", memory.Title, err)
 			continue
 		}
