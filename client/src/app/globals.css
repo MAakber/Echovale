@@ -28,6 +28,7 @@
   --foreground: #1c1917;
   --card: #ffffff;
   --card-foreground: #1c1917;
+  --page-grid: rgba(28, 25, 23, 0.04);
 }
 
 .dark {
@@ -35,12 +36,17 @@
   --foreground: #fafaf9;
   --card: #1c1917;
   --card-foreground: #fafaf9;
+  --page-grid: rgba(245, 245, 244, 0.06);
 }
 
 body {
   background-color: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), "PingFang SC", "Noto Sans SC", sans-serif;
+  background-image:
+    linear-gradient(to right, transparent 0, transparent calc(100% - 1px), var(--page-grid) calc(100% - 1px)),
+    linear-gradient(to bottom, transparent 0, transparent calc(100% - 1px), var(--page-grid) calc(100% - 1px));
+  background-size: 32px 32px;
 }
 
 /* 全局颜色切换动画 */

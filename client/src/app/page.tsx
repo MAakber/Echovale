@@ -23,42 +23,43 @@ export default function Home() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-stone-50 dark:bg-stone-950 font-sans text-stone-900 dark:text-stone-50 transition-colors duration-300">
+    <div className="relative flex min-h-screen flex-col overflow-hidden bg-stone-50 font-sans text-stone-900 transition-colors duration-300 dark:bg-stone-950 dark:text-stone-50">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-[40rem] bg-[radial-gradient(circle_at_top_left,_rgba(251,191,36,0.24),_transparent_30%),radial-gradient(circle_at_top_right,_rgba(34,197,94,0.14),_transparent_26%),radial-gradient(circle_at_50%_20%,_rgba(56,189,248,0.12),_transparent_28%)] dark:bg-[radial-gradient(circle_at_top_left,_rgba(245,158,11,0.16),_transparent_28%),radial-gradient(circle_at_top_right,_rgba(34,197,94,0.12),_transparent_24%),radial-gradient(circle_at_50%_20%,_rgba(56,189,248,0.1),_transparent_28%)]" />
       <Header />
 
-      <main>
-        {/* Hero Section */}
-        <section className="relative pt-32 pb-20 overflow-hidden lg:pt-48 lg:pb-32">
+      <main className="relative">
+        <section className="relative overflow-hidden pt-32 pb-20 lg:pt-40 lg:pb-28">
           <div className="container mx-auto px-6">
-            <div className="flex flex-col lg:flex-row items-center gap-16">
+            <div className="mb-8 grid gap-6 rounded-[2rem] border border-stone-200/80 bg-white/88 p-6 shadow-[0_20px_80px_rgba(28,25,23,0.08)] backdrop-blur dark:border-stone-800 dark:bg-stone-900/88 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:p-8">
               <motion.div 
-                className="flex-1 text-center lg:text-left"
+                className="text-center lg:text-left"
                 initial={{ opacity: 0, x: -30 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.8 }}
               >
-                <div className="inline-block px-4 py-1.5 mb-6 text-sm font-semibold tracking-wide text-stone-600 dark:text-stone-400 uppercase bg-stone-200/50 dark:bg-stone-800/50 rounded-full">
-                  AI 赋能 · 文化传承
+                <div className="inline-block rounded-full bg-stone-200/60 px-4 py-1.5 text-sm font-semibold uppercase tracking-wide text-stone-600 dark:bg-stone-800/60 dark:text-stone-300">
+                  Rural Memory Studio
                 </div>
-                <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-8 leading-tight">
-                  乡村文化<br />
-                  <span className="text-stone-500 dark:text-stone-400">记忆库</span>
+                <h1 className="mt-6 text-5xl font-bold leading-tight tracking-tight md:text-7xl">
+                  把乡村记忆
+                  <br />
+                  <span className="text-stone-500 dark:text-stone-400">做成能被继续观看的数字档案</span>
                 </h1>
-                <p className="text-xl md:text-2xl text-stone-600 dark:text-stone-400 mb-12 max-w-2xl leading-relaxed mx-auto lg:mx-0">
-                  基于 AIGC 技术，为每一座乡村构建独特的数字记忆，让悠远的乡愁在数字化浪潮中永垂不朽。
+                <p className="mx-auto mt-8 max-w-2xl text-xl leading-relaxed text-stone-600 dark:text-stone-400 lg:mx-0 md:text-2xl">
+                  用统一的图文生成流程，整理老照片、口述片段与地方故事，让展示页、创作页和管理台使用同一套清晰的语言。
                 </p>
-                <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
-                  <Link href="/create" className="px-10 py-4 bg-stone-900 dark:bg-stone-50 text-white dark:text-stone-900 rounded-full font-semibold text-lg hover:shadow-xl hover:scale-105 transition-all">
+                <div className="mt-12 flex flex-col gap-4 sm:flex-row sm:justify-center lg:justify-start">
+                  <Link href="/create" className="rounded-full bg-stone-900 px-10 py-4 text-lg font-semibold text-white transition-all hover:scale-[1.02] hover:shadow-xl dark:bg-stone-50 dark:text-stone-900">
                     开始构建记忆
                   </Link>
-                  <Link href="/memories" className="px-10 py-4 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-50 border border-stone-200 dark:border-stone-800 rounded-full font-semibold text-lg hover:bg-stone-50 dark:hover:bg-stone-800 transition-all">
+                  <Link href="/memories" className="rounded-full border border-stone-200 bg-white px-10 py-4 text-lg font-semibold text-stone-900 transition-all hover:bg-stone-50 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-50 dark:hover:bg-stone-800">
                     探索数字长廊
                   </Link>
                 </div>
               </motion.div>
 
               <motion.div 
-                className="flex-1 w-full max-w-2xl"
+                className="w-full"
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.8, delay: 0.2 }}
@@ -69,20 +70,41 @@ export default function Home() {
                 />
               </motion.div>
             </div>
+
+            <div className="grid gap-4 md:grid-cols-3">
+              {[
+                { label: "创作流程", value: "统一图文生成" },
+                { label: "适用场景", value: "村史、建筑、人物、民俗" },
+                { label: "当前重点", value: "清晰录入与稳定展示" },
+              ].map((item) => (
+                <motion.div
+                  key={item.label}
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.55, delay: 0.15 }}
+                  className="rounded-[1.5rem] border border-stone-200 bg-white/85 px-5 py-4 shadow-sm backdrop-blur dark:border-stone-800 dark:bg-stone-900/80"
+                >
+                  <p className="text-xs font-black uppercase tracking-[0.2em] text-stone-400">{item.label}</p>
+                  <p className="mt-2 text-lg font-semibold">{item.value}</p>
+                </motion.div>
+              ))}
+            </div>
           </div>
         </section>
 
-        {/* Feature Highlights */}
-        <section className="py-24 bg-white dark:bg-stone-900/50">
+        <section className="py-24">
           <div className="container mx-auto px-6 text-center">
             <motion.h2 
-              className="text-3xl md:text-5xl font-bold mb-16"
+              className="mb-5 text-3xl font-bold md:text-5xl"
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
             >
-              守护记忆，AI 的无限可能
+              从录入、生成到管理，保持一套一致的工作流
             </motion.h2>
+            <p className="mx-auto mb-16 max-w-3xl text-base leading-8 text-stone-500 dark:text-stone-400 md:text-lg">
+              首页不再只讲概念，而是直接对应系统能力本身：文字整理、图像生成和地理展示，都服务于同一条乡村记忆生产线。
+            </p>
             
             <motion.div 
               className="grid grid-cols-1 md:grid-cols-3 gap-12"
@@ -92,14 +114,14 @@ export default function Home() {
               viewport={{ once: true }}
             >
               {[
-                { icon: "✍️", title: "文学化叙事", desc: "DeepSeek 深度理解口语碎片，将其重构为优美、动人的乡村文学篇章。" },
-                { icon: "🎨", title: "影像重构", desc: "通过通义万相和文心一格，对破损老照片进行上色与高清修复。" },
-                { icon: "🗺️", title: "时空地图", desc: "在交互式地图上标记乡村坐标，沿时间轴回溯文化的生长轨迹。" }
+                { icon: "✍️", title: "文字整理", desc: "把碎片化口述整理成可读、可保存、可继续编辑的乡村叙事。" },
+                { icon: "🖼️", title: "统一出图", desc: "使用单一路径生成展示画面，减少模式切换和上游兼容性干扰。" },
+                { icon: "🗺️", title: "地图归档", desc: "把地点和时间一起留下，让每条记忆都能落到真实空间与年代。" }
               ].map((feature, idx) => (
                 <motion.div 
                   key={idx}
                   variants={fadeInUp}
-                  className="group p-10 bg-stone-50 dark:bg-stone-800/50 rounded-3xl transition-all hover:shadow-2xl hover:-translate-y-2"
+                  className="group rounded-[2rem] border border-stone-200 bg-white/85 p-10 transition-all hover:-translate-y-1 hover:shadow-2xl dark:border-stone-800 dark:bg-stone-900/80"
                 >
                   <div className="w-16 h-16 bg-stone-900 dark:bg-stone-700 text-white rounded-2xl flex items-center justify-center text-2xl mb-8 mx-auto group-hover:rotate-12 transition-transform">
                     {feature.icon}
@@ -114,22 +136,22 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Call to Action */}
-        <section className="py-24 bg-stone-950 text-white relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-stone-800 rounded-full blur-[120px] -translate-y-1/2 translate-x-1/2"></div>
-          <div className="container mx-auto px-6 relative z-10 text-center">
+        <section className="relative overflow-hidden py-24">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(251,191,36,0.16),_transparent_20%),radial-gradient(circle_at_bottom_left,_rgba(56,189,248,0.12),_transparent_22%)] dark:bg-[radial-gradient(circle_at_top_right,_rgba(245,158,11,0.12),_transparent_20%),radial-gradient(circle_at_bottom_left,_rgba(56,189,248,0.08),_transparent_22%)]"></div>
+          <div className="container relative z-10 mx-auto px-6">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               whileInView={{ opacity: 1, scale: 1 }}
               viewport={{ once: true }}
               transition={{ duration: 0.8 }}
+              className="rounded-[2rem] border border-stone-200/80 bg-white/88 px-6 py-16 text-center shadow-[0_20px_80px_rgba(28,25,23,0.08)] backdrop-blur dark:border-stone-800 dark:bg-stone-900/88 md:px-10"
             >
-              <h2 className="text-4xl md:text-6xl font-bold mb-8">让乡愁不再是褪色的照片</h2>
-              <p className="text-xl text-stone-400 mb-12 max-w-3xl mx-auto">
-                每一处乡村都有不为人知的故事。现在就开始记录，用 AI 为你的家乡留下永恒的数字档案。
+              <h2 className="mb-8 text-4xl font-bold md:text-6xl">把一段乡村记忆，整理成可保存的数字档案</h2>
+              <p className="mx-auto mb-12 max-w-3xl text-xl text-stone-500 dark:text-stone-400">
+                上传图片、补充描述、生成图文草稿，再发布到数字长廊。每一次记录，都会成为可以继续查阅和传播的乡村记忆。
               </p>
-              <Link href="/create" className="inline-block px-12 py-5 bg-white text-stone-950 rounded-full font-bold text-lg hover:bg-stone-100 transition-all shadow-xl">
-                立即创建你的乡村笔记
+              <Link href="/create" className="inline-block rounded-full bg-stone-900 px-12 py-5 text-lg font-bold text-white shadow-xl transition-all hover:bg-stone-800 dark:bg-stone-50 dark:text-stone-900 dark:hover:bg-stone-200">
+                开始整理这段记忆
               </Link>
             </motion.div>
           </div>

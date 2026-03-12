@@ -49,18 +49,17 @@ export default function ImageComparison({ beforeImage, afterImage }: ImageCompar
   return (
     <div 
       ref={containerRef}
-      className="relative w-full aspect-[16/9] rounded-2xl overflow-hidden cursor-col-resize select-none border-4 border-white shadow-2xl"
+      className="relative w-full aspect-[4/3] overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm cursor-col-resize select-none dark:border-stone-800 dark:bg-stone-900"
       onMouseDown={onMouseDown}
       onTouchStart={onTouchStart}
     >
       {/* Before Image */}
       <div className="absolute inset-0">
-        <div className="absolute top-4 left-4 z-10 bg-black/50 text-white text-xs px-2 py-1 rounded">原始记录</div>
         <Image 
           src={displayBefore} 
           alt="Original" 
           fill 
-          sizes="(max-width: 1024px) 100vw, 66vw"
+          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 40vw"
           quality={100}
           className="object-cover"
         />
@@ -71,17 +70,14 @@ export default function ImageComparison({ beforeImage, afterImage }: ImageCompar
         className="absolute inset-0 overflow-hidden" 
         style={{ width: `${sliderPosition}%` }}
       >
-        <div className="absolute top-4 right-4 z-10 bg-stone-900/70 text-white text-xs px-2 py-1 rounded whitespace-nowrap">AI 修复重构</div>
-        <div className="w-[100vw] h-full relative">
-            <Image 
-                src={displayAfter} 
-                alt="AI Restored" 
-                fill 
-              sizes="(max-width: 1024px) 100vw, 66vw"
-              quality={100}
-                className="object-cover"
-            />
-        </div>
+        <Image 
+          src={displayAfter} 
+          alt="AI Restored" 
+          fill 
+          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 40vw"
+          quality={100}
+          className="object-cover"
+        />
       </div>
 
       {/* Slider Bar */}

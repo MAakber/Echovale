@@ -213,6 +213,86 @@ func buildSiliconFlowImageEndpoint(baseURL string) string {
 	return trimmed + "/v1/images/generations"
 }
 
+func isOpenRouterTextProvider(config openRouterConfig) bool {
+	providerName := strings.ToLower(strings.TrimSpace(config.ProviderName))
+	baseURL := strings.ToLower(strings.TrimSpace(config.BaseURL))
+	return strings.Contains(providerName, "openrouter") || strings.Contains(baseURL, "openrouter.ai")
+}
+
+func isSiliconFlowTextProvider(config openRouterConfig) bool {
+	providerName := strings.ToLower(strings.TrimSpace(config.ProviderName))
+	baseURL := strings.ToLower(strings.TrimSpace(config.BaseURL))
+	return strings.Contains(providerName, "siliconflow") ||
+		strings.Contains(providerName, "硅基") ||
+		strings.Contains(baseURL, "api.siliconflow.cn")
+}
+
+func hasChatCompletionsPath(rawURL string) bool {
+	trimmed := strings.TrimRight(strings.TrimSpace(rawURL), "/")
+	return strings.HasSuffix(strings.ToLower(trimmed), "/chat/completions")
+}
+
+func buildSiliconFlowTextEndpoint(baseURL string) string {
+	trimmed := strings.TrimRight(strings.TrimSpace(baseURL), "/")
+	if trimmed == "" || hasChatCompletionsPath(trimmed) {
+		return trimmed
+	}
+	if strings.HasSuffix(strings.ToLower(trimmed), "/v1") {
+		return trimmed + "/chat/completions"
+	}
+	return trimmed + "/v1/chat/completions"
+}
+
+func buildOpenRouterTextEndpoint(baseURL string) string {
+	trimmed := strings.TrimRight(strings.TrimSpace(baseURL), "/")
+	if trimmed == "" || hasChatCompletionsPath(trimmed) {
+		return trimmed
+	}
+
+	parsed, err := url.Parse(trimmed)
+	if err != nil {
+		if strings.HasSuffix(strings.ToLower(trimmed), "/api/v1") {
+			return trimmed + "/chat/completions"
+		}
+		return trimmed + "/api/v1/chat/completions"
+	}
+
+	path := strings.TrimRight(parsed.Path, "/")
+	switch strings.ToLower(path) {
+	case "", "/":
+		parsed.Path = "/api/v1/chat/completions"
+	case "/api":
+		parsed.Path = "/api/v1/chat/completions"
+	case "/api/v1":
+		parsed.Path = "/api/v1/chat/completions"
+	default:
+		parsed.Path = path + "/chat/completions"
+	}
+
+	return parsed.String()
+}
+
+func normalizeTextProviderBaseURL(config openRouterConfig) string {
+	trimmed := strings.TrimSpace(config.BaseURL)
+	if trimmed == "" || hasChatCompletionsPath(trimmed) {
+		return trimmed
+	}
+
+	if isOpenRouterTextProvider(config) {
+		return buildOpenRouterTextEndpoint(trimmed)
+	}
+
+	if isSiliconFlowTextProvider(config) {
+		return buildSiliconFlowTextEndpoint(trimmed)
+	}
+
+	if strings.HasSuffix(strings.ToLower(strings.TrimRight(trimmed, "/")), "/v1") {
+		return strings.TrimRight(trimmed, "/") + "/chat/completions"
+	}
+
+	return trimmed
+}
+
 func buildImageSize(config imageGenerationConfig) string {
 	width := strings.TrimSpace(config.Width)
 	height := strings.TrimSpace(config.Height)
@@ -387,9 +467,8 @@ func doJSONRequestWithRetry(client *http.Client, req *http.Request, attempts int
 }
 
 type aiProcessRequest struct {
-	ImageURL string `json:"image_url"`
-	Prompt   string `json:"prompt"`
-	Mode     string `json:"mode"`
+	Prompt string `json:"prompt"`
+	Mode   string `json:"mode"`
 }
 
 type aiProcessResponse struct {
@@ -398,10 +477,8 @@ type aiProcessResponse struct {
 }
 
 type aiProviderTestRequest struct {
-	Text     openRouterConfig      `json:"text"`
-	Image    imageGenerationConfig `json:"image"`
-	TestMode string                `json:"test_mode,omitempty"`
-	ImageURL string                `json:"image_url,omitempty"`
+	Text  openRouterConfig      `json:"text"`
+	Image imageGenerationConfig `json:"image"`
 }
 
 type aiProviderTestResponse struct {
@@ -411,7 +488,6 @@ type aiProviderTestResponse struct {
 	Model        string `json:"model,omitempty"`
 	SampleOutput string `json:"sample_output,omitempty"`
 	PreviewURL   string `json:"preview_url,omitempty"`
-	TestMode     string `json:"test_mode,omitempty"`
 }
 
 func loadEnvFile(path string) {
@@ -533,6 +609,7 @@ func normalizeTextProviderConfig(config openRouterConfig) openRouterConfig {
 	if config.BaseURL == "" {
 		config.BaseURL = defaultConfig.BaseURL
 	}
+	config.BaseURL = normalizeTextProviderBaseURL(config)
 	config.SiteURL = strings.TrimSpace(config.SiteURL)
 	if config.SiteURL == "" {
 		config.SiteURL = defaultConfig.SiteURL
@@ -1069,6 +1146,73 @@ func polishMemoryStoryWithOpenRouter(ctx context.Context, prompt string) (string
 	return polishMemoryStoryWithConfig(ctx, config, prompt)
 }
 
+func testTextProviderWithConfig(ctx context.Context, config openRouterConfig) (string, error) {
+	if config.APIKey == "" {
+		return "", fmt.Errorf("OPENROUTER_API_KEY is not configured")
+	}
+
+	payload := openRouterRequest{
+		Model: config.Model,
+		Messages: []openRouterMessage{
+			{
+				Role:    "system",
+				Content: "你是接口连通性测试助手。",
+			},
+			{
+				Role:    "user",
+				Content: "请只输出四个字：接口可用",
+			},
+		},
+		Temperature: 0,
+		MaxTokens:   32,
+	}
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return "", fmt.Errorf("marshal request failed: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, config.BaseURL, bytes.NewReader(body))
+	if err != nil {
+		return "", fmt.Errorf("create request failed: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+config.APIKey)
+	req.Header.Set("HTTP-Referer", config.SiteURL)
+	req.Header.Set("X-Title", config.SiteName)
+
+	client := &http.Client{Timeout: 18 * time.Second}
+	resp, responseBody, err := doJSONRequestWithRetry(client, req, 1, config.ProviderName)
+	if err != nil {
+		return "", fmt.Errorf("text provider request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var result openRouterResponse
+	if err := json.Unmarshal(responseBody, &result); err != nil {
+		return "", buildJSONDecodeError("decode response", resp.StatusCode, responseBody, err)
+	}
+
+	if resp.StatusCode >= http.StatusBadRequest {
+		if result.Error != nil && result.Error.Message != "" {
+			return "", fmt.Errorf("text provider error: %s", buildOpenRouterErrorMessage(result.Error.Message, result.Error.Metadata.Raw, result.Error.Metadata.ProviderName))
+		}
+		return "", fmt.Errorf("text provider error: status %d", resp.StatusCode)
+	}
+
+	if len(result.Choices) == 0 {
+		return "", fmt.Errorf("text provider returned no choices")
+	}
+
+	content := strings.TrimSpace(result.Choices[0].Message.Content)
+	if content == "" {
+		return "", fmt.Errorf("text provider returned empty content")
+	}
+
+	return content, nil
+}
+
 func polishMemoryStoryWithConfig(ctx context.Context, config openRouterConfig, prompt string) (string, error) {
 	if config.APIKey == "" {
 		return "", fmt.Errorf("OPENROUTER_API_KEY is not configured")
@@ -1227,10 +1371,10 @@ func testTextAIProvider(c *gin.Context) {
 	}
 
 	config := normalizeTextProviderConfig(payload.Text)
-	ctx, cancel := context.WithTimeout(c.Request.Context(), 45*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 20*time.Second)
 	defer cancel()
 
-	story, err := polishMemoryStoryWithConfig(ctx, config, "这是一次 AI 文本供应商测试。请只输出一句简短中文，明确说明接口可用。")
+	story, err := testTextProviderWithConfig(ctx, config)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -1253,46 +1397,23 @@ func testImageAIProvider(c *gin.Context) {
 	}
 
 	config := normalizeImageGenerationConfig(payload.Image)
-	testMode := strings.TrimSpace(strings.ToLower(payload.TestMode))
-	if testMode == "" {
-		testMode = "text-to-image"
-	}
-
 	testPrompt := "乡村田野、白墙黛瓦、晴天、真实摄影感"
-	imageURL := strings.TrimSpace(payload.ImageURL)
-	if testMode == "image-to-image" {
-		if !supportsNativeImageToImage(config) {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "当前图片供应商不支持原生图生图测试。请改用支持参考图输入的供应商，例如 OpenRouter 图片模型。"})
-			return
-		}
-		if imageURL == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "图生图测试需要先上传一张参考图片"})
-			return
-		}
-		testPrompt = "请参考上传的乡村老照片，生成一张保留原始场景气质、构图更完整、细节更清晰的乡村画面"
-	}
 
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 120*time.Second)
 	defer cancel()
 
-	previewURL, err := generateVisualAssetWithConfig(ctx, config, testPrompt, imageURL, "deepseek")
+	previewURL, err := generateVisualAssetWithConfig(ctx, config, testPrompt, "", "deepseek")
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	message := "图片供应商测试成功"
-	if testMode == "image-to-image" {
-		message = "图生图测试成功"
-	}
-
 	c.JSON(http.StatusOK, aiProviderTestResponse{
 		Success:      true,
-		Message:      message,
+		Message:      "图片供应商测试成功",
 		ProviderName: config.ProviderName,
 		Model:        config.Model,
 		PreviewURL:   previewURL,
-		TestMode:     testMode,
 	})
 }
 
@@ -1421,10 +1542,11 @@ func processAIMemory(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 120*time.Second)
 	defer cancel()
 
-	generatedImageURL, err := generateVisualAsset(ctx, req.Prompt, req.ImageURL, req.Mode)
+	imageConfig := getImageGenerationConfig()
+	generatedImageURL, err := generateVisualAssetWithConfig(ctx, imageConfig, req.Prompt, "", req.Mode)
 	if err != nil {
 		log.Printf("AI image generation failed: %v", err)
-		c.JSON(http.StatusBadGateway, gin.H{"error": "AI 图片创作失败，请稍后重试"})
+		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
 		return
 	}
 

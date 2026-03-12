@@ -273,46 +273,62 @@ export default function AdminPage() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-stone-50 text-stone-900 transition-colors duration-300 dark:bg-stone-950 dark:text-stone-50">
+    <div className="relative flex min-h-screen flex-col overflow-hidden bg-stone-50 text-stone-900 transition-colors duration-300 dark:bg-stone-950 dark:text-stone-50">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-[38rem] bg-[radial-gradient(circle_at_top_left,_rgba(251,191,36,0.2),_transparent_30%),radial-gradient(circle_at_top_right,_rgba(56,189,248,0.12),_transparent_24%),radial-gradient(circle_at_50%_18%,_rgba(34,197,94,0.1),_transparent_26%)] dark:bg-[radial-gradient(circle_at_top_left,_rgba(245,158,11,0.14),_transparent_28%),radial-gradient(circle_at_top_right,_rgba(56,189,248,0.1),_transparent_24%),radial-gradient(circle_at_50%_18%,_rgba(34,197,94,0.08),_transparent_24%)]" />
       <Header />
 
-      <main className="flex-grow pt-32 pb-20">
+      <main className="relative flex-grow pt-32 pb-20">
         <div className="container mx-auto px-6">
-          <div className="mb-10 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-            <div className="max-w-2xl">
-              <p className="mb-3 text-xs font-black uppercase tracking-[0.35em] text-stone-400">Memory Console</p>
-              <h1 className="mb-4 text-4xl font-bold md:text-5xl font-serif">记忆管理台</h1>
-              <p className="text-lg leading-relaxed text-stone-500 dark:text-stone-400">
-                这里直接维护后端数据库中的乡村记忆内容。当前版本不做密码验证，适合本地演示和内部录入。
-              </p>
+          <div className="mb-10 overflow-hidden rounded-[2rem] border border-stone-200/80 bg-white/88 p-7 shadow-[0_20px_80px_rgba(28,25,23,0.08)] backdrop-blur dark:border-stone-800 dark:bg-stone-900/88">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+              <div className="max-w-3xl">
+                <p className="mb-3 text-xs font-black uppercase tracking-[0.35em] text-stone-400">Memory Console</p>
+                <h1 className="mb-4 text-4xl font-bold md:text-5xl font-serif">记忆管理台</h1>
+                <p className="text-lg leading-relaxed text-stone-500 dark:text-stone-400">
+                  这里直接维护后端数据库中的乡村记忆内容。视觉语言与首页保持一致，但信息密度更高，方便录入、筛选和修订。
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <Link
+                  href="/admin/ai-providers"
+                  className="inline-flex items-center gap-2 rounded-full border border-stone-200 bg-white px-5 py-3 text-sm font-semibold text-stone-900 transition hover:bg-stone-50 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-50 dark:hover:bg-stone-800"
+                >
+                  <PencilLine className="h-4 w-4" />
+                  AI 配置台
+                </Link>
+                <button
+                  onClick={resetForm}
+                  className="inline-flex items-center gap-2 rounded-full border border-stone-200 bg-white px-5 py-3 text-sm font-semibold text-stone-900 transition hover:bg-stone-50 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-50 dark:hover:bg-stone-800"
+                >
+                  <Plus className="h-4 w-4" />
+                  新建记忆
+                </button>
+                <button
+                  onClick={loadMemories}
+                  className="inline-flex items-center gap-2 rounded-full bg-stone-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-stone-800 dark:bg-stone-50 dark:text-stone-900 dark:hover:bg-stone-200"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  刷新数据
+                </button>
+              </div>
             </div>
-            <div className="flex flex-wrap gap-3">
-              <Link
-                href="/admin/ai-providers"
-                className="inline-flex items-center gap-2 rounded-full border border-stone-200 bg-white px-5 py-3 text-sm font-semibold text-stone-900 transition hover:bg-stone-50 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-50 dark:hover:bg-stone-800"
-              >
-                <PencilLine className="h-4 w-4" />
-                AI 配置台
-              </Link>
-              <button
-                onClick={resetForm}
-                className="inline-flex items-center gap-2 rounded-full border border-stone-200 bg-white px-5 py-3 text-sm font-semibold text-stone-900 transition hover:bg-stone-50 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-50 dark:hover:bg-stone-800"
-              >
-                <Plus className="h-4 w-4" />
-                新建记忆
-              </button>
-              <button
-                onClick={loadMemories}
-                className="inline-flex items-center gap-2 rounded-full bg-stone-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-stone-800 dark:bg-stone-50 dark:text-stone-900 dark:hover:bg-stone-200"
-              >
-                <RefreshCw className="h-4 w-4" />
-                刷新数据
-              </button>
+
+            <div className="mt-6 grid gap-4 md:grid-cols-3">
+              {[
+                { label: "当前记录", value: `${memories.length} 条` },
+                { label: "筛选结果", value: `${filteredMemories.length} 条` },
+                { label: "工作模式", value: selectedId === null ? "新建录入" : `编辑 #${selectedId}` },
+              ].map((item) => (
+                <div key={item.label} className="rounded-[1.5rem] border border-stone-200 bg-stone-50/80 px-5 py-4 dark:border-stone-800 dark:bg-stone-950/60">
+                  <p className="text-xs font-black uppercase tracking-[0.2em] text-stone-400">{item.label}</p>
+                  <p className="mt-2 text-lg font-semibold text-stone-900 dark:text-stone-50">{item.value}</p>
+                </div>
+              ))}
             </div>
           </div>
 
           <div className="grid gap-8 xl:grid-cols-[1.1fr_1.4fr]">
-            <section className="rounded-[2rem] border border-stone-200 bg-white p-6 shadow-sm dark:border-stone-800 dark:bg-stone-900">
+            <section className="rounded-[2rem] border border-stone-200 bg-white/92 p-6 shadow-[0_20px_60px_rgba(28,25,23,0.06)] backdrop-blur dark:border-stone-800 dark:bg-stone-900/92">
               <div className="mb-6 flex flex-col gap-4 lg:flex-row">
                 <label className="flex flex-1 items-center gap-3 rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 dark:border-stone-800 dark:bg-stone-950">
                   <Search className="h-4 w-4 text-stone-400" />
@@ -392,7 +408,7 @@ export default function AdminPage() {
               </div>
             </section>
 
-            <section className="rounded-[2rem] border border-stone-200 bg-white p-6 shadow-sm dark:border-stone-800 dark:bg-stone-900">
+            <section className="rounded-[2rem] border border-stone-200 bg-white/92 p-6 shadow-[0_20px_60px_rgba(28,25,23,0.06)] backdrop-blur dark:border-stone-800 dark:bg-stone-900/92">
               <div className="mb-8 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div>
                   <p className="mb-2 text-xs font-black uppercase tracking-[0.3em] text-stone-400">
