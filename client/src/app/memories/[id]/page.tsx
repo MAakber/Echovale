@@ -181,7 +181,7 @@ export default function MemoryDetailPage() {
                     afterImage={memory.afterImage} 
                   />
                   <p className="mt-4 text-center text-sm text-stone-400 italic">
-                    拖动左滑查看 AI 修复后的惊艳效果
+                    点击信封上的按钮，展开查看这段乡村记忆的影像
                   </p>
                 </div>
 

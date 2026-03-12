@@ -2,10 +2,10 @@
 
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
-import ImageComparison from "@/components/home/ImageComparison";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { PLACEHOLDERS } from "@/lib/constants";
+import Image from "next/image";
 
 export default function Home() {
   const fadeInUp = {
@@ -64,10 +64,20 @@ export default function Home() {
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.8, delay: 0.2 }}
               >
-                <ImageComparison 
-                   beforeImage={PLACEHOLDERS.OLD_PHOTO}
-                   afterImage={PLACEHOLDERS.AI_RESTORED}
-                />
+                <motion.div
+                  initial={{ opacity: 0, y: 12, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ duration: 0.8, delay: 0.3 }}
+                  className="relative mx-auto aspect-[16/9] w-full max-w-3xl"
+                >
+                  <Image
+                    src={PLACEHOLDERS.OLD_PHOTO}
+                    alt="乡村记忆信件"
+                    fill
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 40vw"
+                    className="object-contain [clip-path:inset(0_0_0_7%)]"
+                  />
+                </motion.div>
               </motion.div>
             </div>
 
