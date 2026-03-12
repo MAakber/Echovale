@@ -36,6 +36,10 @@ function getToolMeta(toolId: AIToolId) {
   return AI_TOOL_OPTIONS.find((tool) => tool.id === toolId) ?? AI_TOOL_OPTIONS[0];
 }
 
+function getGenerationModeLabel(imageUrl: string) {
+  return imageUrl.trim() ? "图生图" : "文生图";
+}
+
 export default function CreatePage() {
   const router = useRouter();
   const toast = useToast();
@@ -307,7 +311,8 @@ export default function CreatePage() {
                       <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">{getToolMeta(selectedTool).desc}</p>
                     </div>
                     <div className="rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm text-stone-600 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-300">
-                      {formData.originalImage ? "将结合已上传图片与文字描述生成画面" : "未上传图片时，将仅根据文字描述生成画面"}
+                      当前生成模式：{getGenerationModeLabel(formData.originalImage)}
+                      {formData.originalImage ? "。已上传参考图，本次创作会严格按图生图处理。" : "。未上传参考图，本次创作会按文生图处理。"}
                     </div>
                   </div>
 

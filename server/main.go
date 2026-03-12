@@ -1018,6 +1018,10 @@ func generateVisualAsset(ctx context.Context, prompt, imageURL, mode string) (st
 }
 
 func generateVisualAssetWithConfig(ctx context.Context, config imageGenerationConfig, prompt, imageURL, mode string) (string, error) {
+	if strings.TrimSpace(imageURL) != "" && !supportsNativeImageToImage(config) {
+		return "", fmt.Errorf("当前图片供应商不支持图生图。检测到已上传参考图，系统不会降级为文生图，请在 AI 配置台切换到支持参考图输入的图片模型后再试")
+	}
+
 	if isOpenRouterImageProvider(config) {
 		return generateVisualAssetWithOpenRouter(ctx, config, prompt, imageURL, mode)
 	}
