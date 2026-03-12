@@ -1,68 +1,92 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 675" role="img" aria-labelledby="title desc">
-  <title id="title">原始记录手写抄本</title>
-  <desc id="desc">一张泛黄旧纸上的手写抄本，包含正文、边注与印章效果。</desc>
+  <title id="title">信封化作乡野风景</title>
+  <desc id="desc">一只白色信封立于柔和米色背景中，上半部溶解为乡村丘陵、农舍与蜿蜒小路的线稿，并带有绿色与棕色水彩晕染。</desc>
   <defs>
-    <linearGradient id="desk" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#b79f7b" />
-      <stop offset="100%" stop-color="#8c7556" />
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#efe4d3" />
+      <stop offset="100%" stop-color="#e4d6c0" />
     </linearGradient>
-    <linearGradient id="paper" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#f8f0dc" />
-      <stop offset="50%" stop-color="#ecdcb8" />
-      <stop offset="100%" stop-color="#dcc59b" />
+    <linearGradient id="envelopeShade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="100%" stop-color="#f2ede5" />
     </linearGradient>
-    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="16" stdDeviation="18" flood-color="#5b4830" flood-opacity="0.25" />
+    <linearGradient id="flapShade" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#faf6ef" />
+      <stop offset="100%" stop-color="#ece3d7" />
+    </linearGradient>
+    <filter id="paperShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#8b7356" flood-opacity="0.16" />
     </filter>
-    <filter id="paperGrain">
-      <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" stitchTiles="stitch" result="noise" />
-      <feColorMatrix in="noise" type="saturate" values="0" result="monoNoise" />
-      <feComponentTransfer in="monoNoise" result="softNoise">
-        <feFuncA type="table" tableValues="0 0.04" />
+    <filter id="softGrain">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch" result="noise" />
+      <feColorMatrix in="noise" type="saturate" values="0" result="mono" />
+      <feComponentTransfer in="mono">
+        <feFuncA type="table" tableValues="0 0.045" />
       </feComponentTransfer>
     </filter>
-    <filter id="inkBleed" x="-10%" y="-10%" width="120%" height="120%">
-      <feGaussianBlur stdDeviation="0.45" />
+    <filter id="waterBlur" x="-15%" y="-15%" width="130%" height="130%">
+      <feGaussianBlur stdDeviation="8" />
     </filter>
   </defs>
 
-  <rect width="1200" height="675" fill="url(#desk)" />
-  <g transform="translate(52 28) rotate(-2 540 300)">
-    <rect x="10" y="42" width="1074" height="588" rx="8" fill="#cdb288" opacity="0.24" />
-    <rect x="22" y="30" width="1062" height="588" rx="10" fill="url(#paper)" filter="url(#shadow)" />
-    <rect x="22" y="30" width="1062" height="588" rx="10" fill="#fff" opacity="0.08" filter="url(#paperGrain)" />
+  <rect width="1200" height="675" fill="url(#bg)" />
+  <rect width="1200" height="675" fill="#fff" opacity="0.05" filter="url(#softGrain)" />
 
-    <g fill="none" stroke="#cfbf9e" stroke-width="1" opacity="0.6">
-      <line x1="136" y1="162" x2="1016" y2="162" />
-      <line x1="136" y1="232" x2="1016" y2="232" />
-      <line x1="136" y1="302" x2="1016" y2="302" />
-      <line x1="136" y1="372" x2="1016" y2="372" />
-      <line x1="136" y1="442" x2="1016" y2="442" />
-      <line x1="136" y1="512" x2="1016" y2="512" />
+  <g opacity="0.4" filter="url(#waterBlur)">
+    <path d="M288 374 C242 336 236 268 302 240 C354 216 416 234 444 288 C472 344 430 420 356 430 C330 434 308 420 288 374 Z" fill="#93ad7f" fill-opacity="0.4" />
+    <path d="M728 206 C778 178 842 184 888 226 C930 264 944 326 902 356 C856 388 776 368 734 320 C704 286 692 228 728 206 Z" fill="#b79068" fill-opacity="0.28" />
+    <path d="M646 458 C710 424 800 430 850 474 C886 508 878 558 822 574 C754 592 658 560 620 514 C596 484 604 458 646 458 Z" fill="#9caf8a" fill-opacity="0.26" />
+  </g>
+
+  <g transform="translate(300 88)">
+    <ellipse cx="310" cy="490" rx="236" ry="38" fill="#b9a48a" opacity="0.18" filter="url(#waterBlur)" />
+
+    <g transform="translate(0 2)" stroke="#73614c" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.78">
+      <path d="M154 196 C204 152 262 130 314 134 C376 138 424 174 470 212 C492 232 520 240 548 242" />
+      <path d="M138 234 C194 202 250 196 300 208 C348 220 398 246 440 242 C474 238 506 224 536 212" />
+      <path d="M178 260 C214 248 254 248 292 258 C330 268 366 286 412 284 C444 282 472 270 502 256" />
+      <path d="M462 192 C488 208 504 228 512 252" />
+      <path d="M476 186 C504 202 524 224 534 252" />
+      <path d="M228 270 L228 230" />
+      <path d="M220 236 C228 220 244 214 258 220 C270 224 278 238 274 252" />
+      <path d="M260 270 L260 236" />
+      <path d="M348 284 L348 242" />
+      <path d="M338 250 C348 230 368 224 384 234 C396 242 400 258 396 272" />
+      <path d="M382 284 L382 248" />
+      <path d="M280 300 C322 312 360 334 390 366" />
+      <path d="M390 366 C412 386 436 396 460 394" />
+      <path d="M196 294 C214 304 230 320 244 342" />
     </g>
 
-    <text x="128" y="104" fill="#67503a" font-size="18" font-family="SimSun, serif" letter-spacing="4">乡村旧档抄录件</text>
-    <text x="858" y="104" fill="#8d6f4c" font-size="16" font-family="FangSong, STFangsong, serif">抄录编号：乙巳春卷一</text>
-
-    <g fill="#463222" font-family="STXingkai, Xingkai SC, KaiTi, STKaiti, serif" filter="url(#inkBleed)">
-      <text x="138" y="150" font-size="34">谨录旧闻一则</text>
-      <text x="146" y="222" font-size="36">村前石桥三孔，桥下春水缓行，鸡犬相闻，炊烟绕屋。</text>
-      <text x="146" y="292" font-size="36">旧祠堂墙角尚存墨字，记某年修缮时众人捐工捐木之名。</text>
-      <text x="146" y="362" font-size="36">祖母言，逢集日清晨，担盐挑米者满街，木屐声可达井边。</text>
-      <text x="146" y="432" font-size="36">今人若问旧村如何，惟将桥井古树晒场，一一书之。</text>
-      <text x="146" y="502" font-size="36">故录此页，留作凭照，亦备来日修志时有所依据。</text>
+    <g opacity="0.58" filter="url(#waterBlur)">
+      <path d="M140 222 C176 188 238 168 298 176 C356 184 408 208 456 246 L420 254 C372 226 320 206 270 204 C222 202 182 212 152 236 Z" fill="#89a06c" />
+      <path d="M230 286 C274 264 328 266 372 282 C412 296 446 322 478 354 L436 356 C404 326 364 306 326 302 C286 300 254 306 222 324 Z" fill="#b2865e" fill-opacity="0.55" />
     </g>
 
-    <g fill="#74553c" font-family="STXingkai, Xingkai SC, KaiTi, STKaiti, serif" opacity="0.92">
-      <text x="144" y="564" font-size="26">抄录人：乡校旧藏整理</text>
-      <text x="804" y="564" font-size="24">录于旧历三月廿一</text>
+    <g filter="url(#paperShadow)">
+      <path d="M160 198 H460 C490 198 514 222 514 252 V430 H106 V252 C106 222 130 198 160 198 Z" fill="url(#envelopeShade)" />
+      <path d="M106 252 L310 378 L514 252" fill="#f8f4ed" />
+      <path d="M106 252 L310 378 L514 252" stroke="#d8cfc1" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+      <path d="M106 252 L232 344" stroke="#e0d6c9" stroke-width="3" />
+      <path d="M514 252 L388 344" stroke="#e0d6c9" stroke-width="3" />
+      <path d="M160 198 L310 322 L460 198" fill="url(#flapShade)" stroke="#ddd3c7" stroke-width="3" stroke-linejoin="round" />
+      <path d="M106 252 H514" stroke="#e7ddd0" stroke-width="2" />
+      <path d="M124 432 H496" stroke="#d9cdc0" stroke-width="2" opacity="0.7" />
     </g>
 
-    <g transform="translate(918 432) rotate(-6)">
-      <circle cx="58" cy="58" r="50" fill="#9e2d1f" opacity="0.12" />
-      <circle cx="58" cy="58" r="41" fill="none" stroke="#8e271b" stroke-width="4" opacity="0.52" />
-      <text x="58" y="52" text-anchor="middle" fill="#8e271b" font-size="17" font-family="SimSun, serif">乡土档案</text>
-      <text x="58" y="74" text-anchor="middle" fill="#8e271b" font-size="15" font-family="SimSun, serif">抄存</text>
+    <g opacity="0.16" filter="url(#softGrain)">
+      <rect x="106" y="198" width="408" height="232" rx="10" fill="#8f7a5d" />
+    </g>
+
+    <g opacity="0.7">
+      <path d="M118 214 C100 186 88 160 92 136 C98 104 124 88 156 92" stroke="#8ea57a" stroke-width="10" stroke-linecap="round" fill="none" filter="url(#waterBlur)" />
+      <path d="M492 222 C532 188 560 166 584 170 C610 176 624 204 620 236" stroke="#a88460" stroke-width="11" stroke-linecap="round" fill="none" filter="url(#waterBlur)" />
+      <path d="M220 442 C250 456 280 462 316 460" stroke="#98ad86" stroke-width="9" stroke-linecap="round" fill="none" filter="url(#waterBlur)" />
+    </g>
+
+    <g opacity="0.5" stroke="#8f7b61" stroke-width="2" stroke-linecap="round">
+      <path d="M92 468 H198" />
+      <path d="M428 468 H532" />
     </g>
   </g>
 </svg>

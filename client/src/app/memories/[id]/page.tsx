@@ -31,7 +31,6 @@ interface DisplayMemory {
   date: string;
   content: string;
   tags: string[];
-  beforeImage: string;
   afterImage: string;
   author: string;
   aiMethod: string;
@@ -45,7 +44,6 @@ function mapApiMemoryToDisplay(data: ApiMemoryDetail): DisplayMemory {
     date: new Date(data.created_at).toLocaleDateString(),
     content: data.ai_polished_story || data.description,
     tags: data.tags ? data.tags.split(",") : ["乡村记忆", "AI修复"],
-    beforeImage: data.original_image_path ? resolveAssetUrl(data.original_image_path) : PLACEHOLDERS.OLD_PHOTO,
     afterImage: data.restored_image_path ? resolveAssetUrl(data.restored_image_path) : PLACEHOLDERS.AI_RESTORED,
     author: data.author || "记忆守护者",
     aiMethod: "Stable Diffusion XL + DeepSeek-V3"
@@ -177,11 +175,10 @@ export default function MemoryDetailPage() {
                 {/* Image Comparison Component */}
                 <div className="mb-10">
                   <ImageComparison 
-                    beforeImage={memory.beforeImage} 
                     afterImage={memory.afterImage} 
                   />
                   <p className="mt-4 text-center text-sm text-stone-400 italic">
-                    点击信封上的按钮，展开查看这段乡村记忆的影像
+                    点击图片中央按钮，查看这段乡村记忆的修复影像
                   </p>
                 </div>
 

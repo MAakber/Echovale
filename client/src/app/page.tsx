@@ -72,7 +72,7 @@ export default function Home() {
                 >
                   <Image
                     src={PLACEHOLDERS.OLD_PHOTO}
-                    alt="乡村记忆信件"
+                    alt="乡村旧照片档案"
                     fill
                     sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 40vw"
                     className="object-contain [clip-path:inset(0_0_0_7%)]"

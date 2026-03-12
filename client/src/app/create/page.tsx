@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import {
   ArrowRight,
   CheckCircle2,
-  ImagePlus,
   Loader2,
   NotebookPen,
   Sparkles,
@@ -71,14 +70,12 @@ export default function CreatePage() {
     title: "",
     category: "建筑",
     description: "",
-    originalImage: "",
     restoredImage: "",
     aiPolishedStory: "",
     location: "未指定",
     year: new Date().getFullYear(),
   });
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const aiRequestLockRef = useRef(false);
   const selectedToolMeta = getToolMeta(selectedTool);
 
@@ -102,39 +99,6 @@ export default function CreatePage() {
 
   const prevStep = () => {
     setStep((prev) => Math.max(prev - 1, 1));
-  };
-
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) {
-      return;
-    }
-
-    setIsProcessing(true);
-
-    const data = new FormData();
-    data.append("file", file);
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/upload`, {
-        method: "POST",
-        body: data,
-      });
-
-      const result: AIProcessResponse = await response.json();
-      if (!response.ok || !result.url) {
-        throw new Error(result.error || "图片上传失败");
-      }
-
-      resetAIResult();
-      setFormData((prev) => ({ ...prev, originalImage: result.url ?? "" }));
-      toast.info({ title: "素材已加入", description: "这张图片会作为档案素材保存，并用于最终记忆展示。" });
-    } catch (err) {
-      toast.error({ title: "上传失败", description: err instanceof Error ? err.message : "请检查后端服务是否启动。" });
-    } finally {
-      event.target.value = "";
-      setIsProcessing(false);
-    }
   };
 
   const handleAIProcess = async () => {
@@ -173,7 +137,7 @@ export default function CreatePage() {
 
       setFormData((prev) => ({
         ...prev,
-        restoredImage: result.restored_url || prev.originalImage,
+        restoredImage: result.restored_url || "",
         aiPolishedStory: result.polished_story || "",
       }));
       setLastCompletedTool(selectedTool);
@@ -205,7 +169,7 @@ export default function CreatePage() {
           latitude: 25 + Math.random() * 15,
           longitude: 100 + Math.random() * 20,
           year: parseInt(formData.year.toString(), 10),
-          original_image_path: formData.originalImage,
+          original_image_path: "",
           restored_image_path: formData.restoredImage,
           author: "匿名贡献者",
         }),
@@ -237,13 +201,13 @@ export default function CreatePage() {
                 <p className="mb-3 text-xs font-black uppercase tracking-[0.35em] text-stone-400">Memory Studio</p>
                 <h1 className="max-w-3xl text-4xl font-bold tracking-tight md:text-5xl">把乡村记忆整理成一段可发布的图文档案</h1>
                 <p className="mt-4 max-w-2xl text-base leading-7 text-stone-600 dark:text-stone-300 md:text-lg">
-                  现在统一使用文生图创作流程。上传的老照片会作为记忆素材留档，不再进入图生图改绘，避免生成链路混乱，界面也更直接。
+                  现在创作页只保留文字驱动的生成流程。先把记忆讲清楚，再选择表达方式，最后确认发布，链路更短也更稳定。
                 </p>
               </div>
 
               <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
                 {[
-                  { label: "素材", value: formData.originalImage ? "已挂载图片" : "可选上传" },
+                  { label: "输入", value: "纯文字描述" },
                   { label: "文本", value: `${formData.description.trim().length} 字描述` },
                   { label: "输出", value: "统一文生图" },
                 ].map((item) => (
@@ -295,51 +259,11 @@ export default function CreatePage() {
                     <p className="text-sm font-semibold uppercase tracking-[0.2em] text-stone-400">素材准备</p>
                     <h2 className="mt-3 text-3xl font-bold">先把记忆讲清楚</h2>
                     <p className="mt-3 max-w-2xl text-sm leading-7 text-stone-500 dark:text-stone-400 md:text-base">
-                      图片是可选的档案补充，真正驱动生成的是下面这段文字。尽量写清人物、地点、时间和你记得的细节，输出会稳定很多。
+                      这一版不再提供图片输入，真正驱动生成的是下面这段文字。尽量写清人物、地点、时间和你记得的细节，输出会稳定很多。
                     </p>
                   </div>
 
-                  <div className="grid gap-5 md:grid-cols-[0.95fr_1.05fr]">
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className={`group relative overflow-hidden rounded-[1.75rem] border p-6 text-left transition ${
-                        formData.originalImage
-                          ? "border-emerald-300 bg-emerald-50 dark:border-emerald-900/60 dark:bg-emerald-950/20"
-                          : "border-stone-200 bg-stone-50 hover:border-stone-400 hover:bg-white dark:border-stone-800 dark:bg-stone-950/60 dark:hover:border-stone-700 dark:hover:bg-stone-900"
-                      }`}
-                    >
-                      <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
-
-                      <div className="mb-5 inline-flex rounded-2xl bg-white p-3 text-stone-900 shadow-sm dark:bg-stone-900 dark:text-stone-50">
-                        {isProcessing ? <Loader2 className="h-6 w-6 animate-spin" /> : <ImagePlus className="h-6 w-6" />}
-                      </div>
-
-                      <div className="space-y-2">
-                        <p className="text-xl font-semibold">上传图片资料</p>
-                        <p className="text-sm leading-7 text-stone-500 dark:text-stone-400">
-                          可上传老照片、扫描件或现场拍摄图。它会和最终记忆一同保存，但不会再触发图生图改绘流程。
-                        </p>
-                      </div>
-
-                      {formData.originalImage ? (
-                        <div className="mt-6 overflow-hidden rounded-[1.5rem] border border-white/80 bg-white p-3 shadow-sm dark:border-stone-800 dark:bg-stone-900">
-                          <div className="relative aspect-[4/3] overflow-hidden rounded-[1.2rem] bg-stone-100 dark:bg-stone-800">
-                            <Image src={resolveAssetUrl(formData.originalImage)} alt="已上传素材" fill className="object-cover" />
-                          </div>
-                          <div className="mt-3 flex items-center gap-2 text-sm font-medium text-emerald-700 dark:text-emerald-200">
-                            <CheckCircle2 className="h-4 w-4" />
-                            素材已挂载到当前记忆
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="mt-6 rounded-[1.5rem] border border-dashed border-stone-300 px-4 py-5 text-sm text-stone-500 dark:border-stone-700 dark:text-stone-400">
-                          建议上传一张能代表这段记忆的图片，但这一步不是必填。
-                        </div>
-                      )}
-                    </button>
-
-                    <div className="rounded-[1.75rem] border border-stone-200 bg-stone-50/80 p-6 dark:border-stone-800 dark:bg-stone-950/60">
+                  <div className="rounded-[1.75rem] border border-stone-200 bg-stone-50/80 p-6 dark:border-stone-800 dark:bg-stone-950/60">
                       <div className="mb-5 inline-flex rounded-2xl bg-white p-3 text-stone-900 shadow-sm dark:bg-stone-900 dark:text-stone-50">
                         <NotebookPen className="h-6 w-6" />
                       </div>
@@ -357,7 +281,6 @@ export default function CreatePage() {
                         <span>建议写出时间、地点、人物和一个最具体的场景动作。</span>
                         <span>{formData.description.trim().length} 字</span>
                       </div>
-                    </div>
                   </div>
                 </div>
               )}
@@ -380,9 +303,7 @@ export default function CreatePage() {
                         <p className="mt-2 text-sm leading-7 text-stone-500 dark:text-stone-400">{selectedToolMeta.desc}</p>
                       </div>
                       <div className="rounded-[1.3rem] border border-stone-200 bg-white px-4 py-3 text-sm leading-7 text-stone-600 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-300">
-                        {formData.originalImage
-                          ? "已上传图片资料，最终发布时会和 AI 生成结果一起展示。"
-                          : "未上传图片资料，本次会只展示 AI 生成的结果图。"}
+                        当前不会附带原图输入，生成结果完全取决于你的文字描述和所选表达模式。
                       </div>
                     </div>
 
@@ -477,15 +398,6 @@ export default function CreatePage() {
                           className="object-cover"
                         />
                       </div>
-
-                      {formData.originalImage && (
-                        <div className="rounded-[1.5rem] border border-stone-200 bg-stone-50 p-4 dark:border-stone-800 dark:bg-stone-950/60">
-                          <p className="text-xs font-black uppercase tracking-[0.2em] text-stone-400">档案原图</p>
-                          <div className="relative mt-3 aspect-[4/3] overflow-hidden rounded-[1.2rem] border border-stone-200 bg-stone-100 dark:border-stone-800 dark:bg-stone-800">
-                            <Image src={resolveAssetUrl(formData.originalImage)} alt="档案原图" fill className="object-cover" />
-                          </div>
-                        </div>
-                      )}
                     </div>
 
                     <div className="space-y-4">
@@ -550,7 +462,7 @@ export default function CreatePage() {
                   </div>
                   <div>
                     <p className="text-sm text-stone-400">素材状态</p>
-                    <p className="mt-1 text-lg font-semibold">{formData.originalImage ? "已上传图片资料" : "仅文字创作"}</p>
+                    <p className="mt-1 text-lg font-semibold">仅文字创作</p>
                   </div>
                   <div>
                     <p className="text-sm text-stone-400">文本准备度</p>
@@ -564,12 +476,12 @@ export default function CreatePage() {
                   <p className="text-xs font-black uppercase tracking-[0.25em] text-stone-300">输出说明</p>
                   <h3 className="mt-3 text-2xl font-semibold">统一文生图后，路径更清楚</h3>
                   <p className="mt-3 text-sm leading-7 text-stone-300">
-                    现在图片生成始终基于文字描述执行，上传图片只承担档案展示作用。这样能减少失败分支，也让创作反馈更一致。
+                    现在图片生成始终基于文字描述执行。这样能减少失败分支，也让创作反馈更一致。
                   </p>
                 </div>
                 <div className="space-y-3 p-6 text-sm leading-7 text-stone-300">
                   <div className="rounded-[1.25rem] border border-white/10 bg-white/5 px-4 py-3">1. 先写清具体场景，而不是抽象感受。</div>
-                  <div className="rounded-[1.25rem] border border-white/10 bg-white/5 px-4 py-3">2. 如果有原图，优先上传最能代表记忆的那一张。</div>
+                  <div className="rounded-[1.25rem] border border-white/10 bg-white/5 px-4 py-3">2. 多写一个可被看见的动作，画面更容易稳定。</div>
                   <div className="rounded-[1.25rem] border border-white/10 bg-white/5 px-4 py-3">3. 标题尽量短，让长廊列表更容易浏览。</div>
                 </div>
               </div>

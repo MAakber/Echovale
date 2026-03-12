@@ -1295,6 +1295,7 @@ func initDB() {
 	// 自动迁移
 	db.AutoMigrate(&Memory{})
 	seedDefaultMemories(db)
+	cleanupLegacyOriginalImagePlaceholders(db)
 }
 
 func main() {

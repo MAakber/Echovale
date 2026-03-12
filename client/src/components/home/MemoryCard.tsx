@@ -13,7 +13,7 @@ import { motion } from "framer-motion";
 import { PLACEHOLDERS } from "@/lib/constants";
 
 export default function MemoryCard({ id, title, category, location, imageUrl, excerpt }: MemoryCardProps) {
-  const displayImage = imageUrl || PLACEHOLDERS.RURAL;
+  const displayImage = imageUrl || PLACEHOLDERS.OLD_PHOTO;
 
   return (
     <motion.div 

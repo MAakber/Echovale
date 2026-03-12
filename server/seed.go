@@ -8,6 +8,8 @@ import (
 	"gorm.io/gorm"
 )
 
+const legacyOriginalImagePlaceholderPath = "/placeholders/text-letter.svg"
+
 func seedDefaultMemories(database *gorm.DB) {
 	seedMemories := []Memory{
 		{
@@ -19,7 +21,7 @@ func seedDefaultMemories(database *gorm.DB) {
 			Latitude:          30.2722,
 			Longitude:         117.9922,
 			Year:              2024,
-			OriginalImagePath: "/placeholders/text-letter.svg",
+			OriginalImagePath: "",
 			RestoredImagePath: "/gallery/hongcun.jpg",
 			Author:            "记忆守护者 - 小林",
 			Tags:              "徽派建筑,世界文化遗产,数字修复",
@@ -34,7 +36,7 @@ func seedDefaultMemories(database *gorm.DB) {
 			Latitude:          34.5111,
 			Longitude:         109.7614,
 			Year:              2024,
-			OriginalImagePath: "/placeholders/text-letter.svg",
+			OriginalImagePath: "",
 			RestoredImagePath: "/gallery/shadow-play.jpg",
 			Author:            "记忆守护者 - 阿禾",
 			Tags:              "皮影戏,非遗保护,光影表演",
@@ -49,7 +51,7 @@ func seedDefaultMemories(database *gorm.DB) {
 			Latitude:          23.1281,
 			Longitude:         102.7426,
 			Year:              2024,
-			OriginalImagePath: "/placeholders/text-letter.svg",
+			OriginalImagePath: "",
 			RestoredImagePath: "/gallery/yuanyang-terrace.jpg",
 			Author:            "记忆守护者 - 山禾",
 			Tags:              "哈尼梯田,农耕文明,景观记忆",
@@ -64,7 +66,7 @@ func seedDefaultMemories(database *gorm.DB) {
 			Latitude:          24.8741,
 			Longitude:         118.6757,
 			Year:              2024,
-			OriginalImagePath: "/placeholders/text-letter.svg",
+			OriginalImagePath: "",
 			RestoredImagePath: "/gallery/quanzhou-old-street.jpg",
 			Author:            "记忆守护者 - 清越",
 			Tags:              "闽南建筑,海丝文化,街巷更新",
@@ -79,7 +81,7 @@ func seedDefaultMemories(database *gorm.DB) {
 			Latitude:          26.4980,
 			Longitude:         108.1917,
 			Year:              2024,
-			OriginalImagePath: "/placeholders/text-letter.svg",
+			OriginalImagePath: "",
 			RestoredImagePath: "/gallery/xijiang-miao-village.jpg",
 			Author:            "记忆守护者 - 阿锦",
 			Tags:              "苗族银饰,西江千户苗寨,服饰非遗",
@@ -94,7 +96,7 @@ func seedDefaultMemories(database *gorm.DB) {
 			Latitude:          29.2687,
 			Longitude:         117.1784,
 			Year:              2024,
-			OriginalImagePath: "/placeholders/text-letter.svg",
+			OriginalImagePath: "",
 			RestoredImagePath: "/gallery/jingdezhen.jpg",
 			Author:            "记忆守护者 - 景澄",
 			Tags:              "景德镇,制瓷工艺,窑火文化",
@@ -117,6 +119,26 @@ func seedDefaultMemories(database *gorm.DB) {
 		if err := database.Create(&memory).Error; err != nil {
 			log.Printf("failed to seed memory %q: %v", memory.Title, err)
 		}
+	}
+}
+
+func cleanupLegacyOriginalImagePlaceholders(database *gorm.DB) {
+	result := database.Model(&Memory{}).
+		Where(
+			"original_image_path = ? OR original_image_path LIKE ? OR original_image_path LIKE ?",
+			legacyOriginalImagePlaceholderPath,
+			legacyOriginalImagePlaceholderPath+"?%",
+			"%"+legacyOriginalImagePlaceholderPath+"%",
+		).
+		Update("original_image_path", "")
+
+	if result.Error != nil {
+		log.Printf("failed to cleanup legacy original image placeholders: %v", result.Error)
+		return
+	}
+
+	if result.RowsAffected > 0 {
+		log.Printf("cleaned up %d legacy original image placeholder records", result.RowsAffected)
 	}
 }
 

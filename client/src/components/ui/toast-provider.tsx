@@ -67,10 +67,9 @@ function levelStyles(level: ToastLevel) {
 }
 
 function ToastCell({ toast, onDismiss }: { toast: ToastItem; onDismiss: (id: string) => void }) {
-  const [isHovered, setIsHovered] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const remainingRef = useRef(toast.duration);
-  const startTimeRef = useRef(Date.now());
+  const startTimeRef = useRef(0);
 
   const startTimer = useCallback((duration: number) => {
     timerRef.current = setTimeout(() => {
@@ -87,7 +86,6 @@ function ToastCell({ toast, onDismiss }: { toast: ToastItem; onDismiss: (id: str
   }, [startTimer, toast.duration]);
 
   const handleMouseEnter = () => {
-    setIsHovered(true);
     if (timerRef.current) {
       clearTimeout(timerRef.current);
       // 计算剩余时间
@@ -96,7 +94,6 @@ function ToastCell({ toast, onDismiss }: { toast: ToastItem; onDismiss: (id: str
   };
 
   const handleMouseLeave = () => {
-    setIsHovered(false);
     // 只有在剩余时间大于零时才重新启动
     if (remainingRef.current > 0) {
       startTimer(remainingRef.current);
