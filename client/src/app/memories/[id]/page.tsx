@@ -177,9 +177,6 @@ export default function MemoryDetailPage() {
                   <ImageComparison 
                     afterImage={memory.afterImage} 
                   />
-                  <p className="mt-4 text-center text-sm text-stone-400 italic">
-                    点击图片中央按钮，查看这段乡村记忆的修复影像
-                  </p>
                 </div>
 
                 <div className="prose prose-stone dark:prose-invert max-w-none">

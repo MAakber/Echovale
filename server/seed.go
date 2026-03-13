@@ -1,14 +1,14 @@
 package main
 
 import (
-	"errors"
+	"fmt"
 	"log"
 	"time"
 
 	"gorm.io/gorm"
 )
 
-const legacyOriginalImagePlaceholderPath = "/placeholders/text-letter.svg"
+const legacyOriginalImagePlaceholderPath = "/placeholders/rural-memory.jpg"
 
 func seedDefaultMemories(database *gorm.DB) {
 	seedMemories := []Memory{
@@ -104,30 +104,41 @@ func seedDefaultMemories(database *gorm.DB) {
 		},
 	}
 
+	titles := make([]string, 0, len(seedMemories))
 	for _, memory := range seedMemories {
-		var existing Memory
-		err := database.Where("title = ?", memory.Title).First(&existing).Error
-		if err == nil {
-			continue
-		}
+		titles = append(titles, memory.Title)
+	}
 
-		if !errors.Is(err, gorm.ErrRecordNotFound) {
-			log.Printf("failed to query seed memory %q: %v", memory.Title, err)
+	existingTitles := make([]string, 0, len(seedMemories))
+	if err := database.Model(&Memory{}).Where("title IN ?", titles).Pluck("title", &existingTitles).Error; err != nil {
+		log.Printf("failed to query existing seed memories: %v", err)
+		return
+	}
+
+	existingTitleSet := make(map[string]struct{}, len(existingTitles))
+	for _, title := range existingTitles {
+		existingTitleSet[title] = struct{}{}
+	}
+
+	for _, memory := range seedMemories {
+		if _, exists := existingTitleSet[memory.Title]; exists {
 			continue
 		}
 
 		if err := database.Create(&memory).Error; err != nil {
 			log.Printf("failed to seed memory %q: %v", memory.Title, err)
+			continue
 		}
+
+		existingTitleSet[memory.Title] = struct{}{}
 	}
 }
 
 func cleanupLegacyOriginalImagePlaceholders(database *gorm.DB) {
 	result := database.Model(&Memory{}).
 		Where(
-			"original_image_path = ? OR original_image_path LIKE ? OR original_image_path LIKE ?",
+			"original_image_path = ? OR original_image_path LIKE ?",
 			legacyOriginalImagePlaceholderPath,
-			legacyOriginalImagePlaceholderPath+"?%",
 			"%"+legacyOriginalImagePlaceholderPath+"%",
 		).
 		Update("original_image_path", "")
@@ -145,7 +156,7 @@ func cleanupLegacyOriginalImagePlaceholders(database *gorm.DB) {
 func mustParseSeedTime(value string) time.Time {
 	parsed, err := time.Parse(time.RFC3339, value)
 	if err != nil {
-		panic(err)
+		panic(fmt.Errorf("invalid seed time %q: %w", value, err))
 	}
 
 	return parsed

@@ -20,6 +20,6 @@ export const resolveAssetUrl = (path: string) => {
 
 export const PLACEHOLDERS = {
   RURAL: resolveAssetUrl("/gallery/hongcun.jpg"),
-  OLD_PHOTO: resolveAssetUrl("/placeholders/text-letter.svg?v=20260312"),
+  OLD_PHOTO: resolveAssetUrl("/placeholders/rural-memory.jpg"),
   AI_RESTORED: resolveAssetUrl("/gallery/yuanyang-terrace.jpg"),
 };
