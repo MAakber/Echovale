@@ -32,6 +32,11 @@ export default function MemoriesPage() {
   }>>([]);
   const [category, setCategory] = useState("全部");
 
+  const categories = [
+    "全部",
+    ...Array.from(new Set(memories.map((memory) => memory.category))).sort((a, b) => a.localeCompare(b, "zh-CN")),
+  ];
+
   useEffect(() => {
     const fetchMemories = async () => {
       setLoading(true);
@@ -88,7 +93,7 @@ export default function MemoriesPage() {
               </p>
             </div>
             <div className="flex flex-wrap gap-3">
-              {["全部", "建筑", "非遗", "民俗"].map((cat) => (
+              {categories.map((cat) => (
                 <button 
                   key={cat}
                   onClick={() => setCategory(cat)}

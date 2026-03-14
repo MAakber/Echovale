@@ -42,8 +42,10 @@ export default function AdminPage() {
   const [keyword, setKeyword] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("全部");
 
-  const loadMemories = useCallback(async () => {
-    setLoading(true);
+  const loadMemories = useCallback(async (showLoading = true) => {
+    if (showLoading) {
+      setLoading(true);
+    }
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/v1/memories`);
@@ -56,7 +58,9 @@ export default function AdminPage() {
     } catch {
       toast.error({ title: "读取管理数据失败", description: "请确认后端服务已经启动。" });
     } finally {
-      setLoading(false);
+      if (showLoading) {
+        setLoading(false);
+      }
     }
   }, [toast]);
 
@@ -93,7 +97,8 @@ export default function AdminPage() {
         throw new Error(message || `delete failed: ${response.status}`);
       }
 
-      await loadMemories();
+      setMemories((prev) => prev.filter((memory) => memory.id !== id));
+      void loadMemories(false);
       toast.info({ title: "记忆已删除", description: "该条内容已从后端数据库移除。" });
     } catch (err) {
       toast.error({ title: "删除失败", description: err instanceof Error ? err.message : "请稍后重试。" });
@@ -196,32 +201,34 @@ export default function AdminPage() {
                     return (
                       <div
                         key={memory.id}
-                        className="group relative flex w-full flex-col gap-4 rounded-3xl border border-stone-200 bg-stone-50 p-3 sm:flex-row transition-all hover:border-stone-300 hover:bg-white hover:shadow-md dark:border-stone-800 dark:bg-stone-950/50 dark:hover:border-stone-700 dark:hover:bg-stone-900/50"
+                        className="group flex w-full flex-col gap-4 rounded-3xl border border-stone-200 bg-stone-50 p-3 sm:flex-row transition-all hover:border-stone-300 hover:bg-white hover:shadow-md dark:border-stone-800 dark:bg-stone-950/50 dark:hover:border-stone-700 dark:hover:bg-stone-900/50"
                       >
-                        <Link href={`/memories/${memory.id}`} className="absolute inset-0 z-0 rounded-3xl" aria-label={`View ${memory.title}`} />
-                        <div className="relative z-10 h-32 w-full shrink-0 overflow-hidden rounded-2xl sm:w-48 pointer-events-none">
+                        <Link href={`/memories/${memory.id}`} className="relative h-32 w-full shrink-0 overflow-hidden rounded-2xl sm:w-48" aria-label={`View ${memory.title}`}>
                           <Image src={preview} alt={memory.title} fill className="object-cover transition-transform duration-500 group-hover:scale-105" sizes="(max-width: 640px) 100vw, 192px" />
-                        </div>
-                        <div className="relative z-10 flex flex-1 flex-col justify-between py-1 pointer-events-none">
+                        </Link>
+                        <div className="flex flex-1 flex-col justify-between py-1">
                           <div>
                             <div className="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-stone-400">
                               <span>{memory.category}</span>
                               <span></span>
                               <span>ID {memory.id}</span>
                             </div>
-                            <h2 className="mb-2 line-clamp-1 text-lg font-bold transition-colors group-hover:text-amber-600 dark:group-hover:text-amber-500">{memory.title}</h2>
+                            <h2 className="mb-2 line-clamp-1 text-lg font-bold transition-colors group-hover:text-amber-600 dark:group-hover:text-amber-500">
+                              <Link href={`/memories/${memory.id}`} className="hover:underline">
+                                {memory.title}
+                              </Link>
+                            </h2>
                             <p className="mb-3 line-clamp-2 text-sm leading-relaxed text-stone-500 dark:text-stone-400">
                               {memory.ai_polished_story || memory.description || "暂无摘要"}
                             </p>
                           </div>
-                          <div className="flex items-center justify-between pointer-events-auto">
-                            <div className="text-xs text-stone-400 pointer-events-none">
+                          <div className="flex items-center justify-between">
+                            <div className="text-xs text-stone-400">
                               {memory.location || "未指定地点"}  {memory.author || "匿名贡献者"}
                             </div>
                             <button
                               type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
+                              onClick={() => {
                                 handleDelete(memory.id);
                               }}
                               disabled={deletingId === memory.id}

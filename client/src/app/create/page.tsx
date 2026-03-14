@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
@@ -54,8 +54,19 @@ const STEP_LABELS = ["整理素材", "选择风格", "确认发布"] as const;
 
 type AIToolId = (typeof AI_TOOL_OPTIONS)[number]["id"];
 
+const AI_GENERATION_COUNTDOWN_SECONDS = 300;
+
 function getToolMeta(toolId: AIToolId) {
   return AI_TOOL_OPTIONS.find((tool) => tool.id === toolId) ?? AI_TOOL_OPTIONS[1];
+}
+
+function formatCountdown(totalSeconds: number) {
+  const clamped = Math.max(0, totalSeconds);
+  const minutes = Math.floor(clamped / 60)
+    .toString()
+    .padStart(2, "0");
+  const seconds = (clamped % 60).toString().padStart(2, "0");
+  return `${minutes}:${seconds}`;
 }
 
 export default function CreatePage() {
@@ -63,6 +74,8 @@ export default function CreatePage() {
   const toast = useToast();
   const [step, setStep] = useState(1);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isAIGenerating, setIsAIGenerating] = useState(false);
+  const [aiCountdownSeconds, setAiCountdownSeconds] = useState(AI_GENERATION_COUNTDOWN_SECONDS);
   const [selectedTool, setSelectedTool] = useState<AIToolId>("tongyi");
   const [aiErrorMessage, setAiErrorMessage] = useState("");
   const [lastCompletedTool, setLastCompletedTool] = useState<AIToolId | null>(null);
@@ -78,6 +91,21 @@ export default function CreatePage() {
 
   const aiRequestLockRef = useRef(false);
   const selectedToolMeta = getToolMeta(selectedTool);
+
+  useEffect(() => {
+    if (!isAIGenerating) {
+      return;
+    }
+
+    setAiCountdownSeconds(AI_GENERATION_COUNTDOWN_SECONDS);
+    const timer = window.setInterval(() => {
+      setAiCountdownSeconds((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [isAIGenerating]);
 
   const resetAIResult = () => {
     setAiErrorMessage("");
@@ -114,6 +142,7 @@ export default function CreatePage() {
 
     aiRequestLockRef.current = true;
     setIsProcessing(true);
+    setIsAIGenerating(true);
     setAiErrorMessage("");
 
     try {
@@ -149,6 +178,7 @@ export default function CreatePage() {
       toast.error({ title: "AI 创作失败", description: message });
     } finally {
       aiRequestLockRef.current = false;
+      setIsAIGenerating(false);
       setIsProcessing(false);
     }
   };
@@ -433,10 +463,20 @@ export default function CreatePage() {
                 </button>
 
                 <div className="flex flex-col items-start gap-3 sm:items-end">
-                  {isProcessing && (
+                  {isAIGenerating && (
                     <div className="flex items-center gap-2 text-xs font-medium text-stone-400 dark:text-stone-500">
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      <span>AI 正在生成中，请稍候</span>
+                      <span>
+                        {aiCountdownSeconds > 0
+                          ? `图片生成中，预计剩余 ${formatCountdown(aiCountdownSeconds)}`
+                          : "图片仍在生成，已超过预计时间，请继续等待"}
+                      </span>
+                    </div>
+                  )}
+                  {!isAIGenerating && isProcessing && step === 3 && (
+                    <div className="flex items-center gap-2 text-xs font-medium text-stone-400 dark:text-stone-500">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      <span>正在发布，请稍候</span>
                     </div>
                   )}
                   <button

@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -302,6 +303,81 @@ func buildImageSize(config imageGenerationConfig) string {
 	return width + "x" + height
 }
 
+func resolveImageRequestTimeout(config imageGenerationConfig) time.Duration {
+	timeoutSecondsRaw := strings.TrimSpace(os.Getenv("AI_IMAGE_TIMEOUT_SECONDS"))
+	if timeoutSecondsRaw != "" {
+		if timeoutSeconds, err := strconv.Atoi(timeoutSecondsRaw); err == nil && timeoutSeconds >= 30 {
+			return time.Duration(timeoutSeconds) * time.Second
+		}
+	}
+
+	if isSiliconFlowImageProvider(config) {
+		return 600 * time.Second
+	}
+
+	return 120 * time.Second
+}
+
+func resolveImageWorkflowTimeout(config imageGenerationConfig) time.Duration {
+	requestTimeout := resolveImageRequestTimeout(config)
+	if isSiliconFlowImageProvider(config) {
+		// SiliconFlow 可能存在排队和慢启动，给两次请求窗口，避免重试被总上下文提前截断。
+		return requestTimeout*2 + 90*time.Second
+	}
+	return requestTimeout + 30*time.Second
+}
+
+func isContextDeadlineError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	if errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+
+	errText := strings.ToLower(err.Error())
+	return strings.Contains(errText, "context deadline exceeded") ||
+		strings.Contains(errText, "client.timeout exceeded")
+}
+
+func executeSiliconFlowImageRequest(ctx context.Context, endpoint string, apiKey string, body []byte, timeout time.Duration) (*http.Response, []byte, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
+	if err != nil {
+		return nil, nil, fmt.Errorf("create siliconflow image request failed: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+
+	return doJSONRequestWithRetry(&http.Client{Timeout: timeout}, req, 2, "SiliconFlow")
+}
+
+func resolveSiliconFlowInferenceSteps() int {
+	raw := strings.TrimSpace(os.Getenv("SILICONFLOW_NUM_INFERENCE_STEPS"))
+	if raw != "" {
+		if steps, err := strconv.Atoi(raw); err == nil && steps >= 8 && steps <= 40 {
+			return steps
+		}
+	}
+	return 16
+}
+
+func buildSiliconFlowPayload(config imageGenerationConfig, prompt, imageURL, mode string, inferenceSteps int) siliconFlowImageRequest {
+	if inferenceSteps < 8 {
+		inferenceSteps = 8
+	}
+
+	return siliconFlowImageRequest{
+		Model:             config.Model,
+		Prompt:            buildVisualGenerationPrompt(prompt, imageURL, mode),
+		ImageSize:         buildImageSize(config),
+		BatchSize:         1,
+		NumInferenceSteps: inferenceSteps,
+		GuidanceScale:     7.5,
+	}
+}
+
 func validateSiliconFlowImageConfig(config imageGenerationConfig) error {
 	if !strings.Contains(strings.ToLower(strings.TrimSpace(config.Model)), "kolors") {
 		return nil
@@ -334,14 +410,8 @@ func generateVisualAssetWithSiliconFlow(ctx context.Context, config imageGenerat
 		return "", err
 	}
 
-	payload := siliconFlowImageRequest{
-		Model:             config.Model,
-		Prompt:            buildVisualGenerationPrompt(prompt, imageURL, mode),
-		ImageSize:         buildImageSize(config),
-		BatchSize:         1,
-		NumInferenceSteps: 20,
-		GuidanceScale:     7.5,
-	}
+	inferenceSteps := resolveSiliconFlowInferenceSteps()
+	payload := buildSiliconFlowPayload(config, prompt, imageURL, mode, inferenceSteps)
 
 	body, err := json.Marshal(payload)
 	if err != nil {
@@ -349,16 +419,23 @@ func generateVisualAssetWithSiliconFlow(ctx context.Context, config imageGenerat
 	}
 
 	endpoint := buildSiliconFlowImageEndpoint(config.BaseURL)
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
-	if err != nil {
-		return "", fmt.Errorf("create siliconflow image request failed: %w", err)
+	timeout := resolveImageRequestTimeout(config)
+	resp, responseBody, err := executeSiliconFlowImageRequest(ctx, endpoint, config.APIKey, body, timeout)
+	if err != nil && isContextDeadlineError(err) {
+		retrySteps := inferenceSteps - 6
+		retryPayload := buildSiliconFlowPayload(config, prompt, imageURL, mode, retrySteps)
+		retryBody, marshalErr := json.Marshal(retryPayload)
+		if marshalErr != nil {
+			return "", fmt.Errorf("marshal siliconflow retry request failed: %w", marshalErr)
+		}
+
+		log.Printf("siliconflow image request timed out after %s, retrying once with fewer inference steps (%d -> %d)", timeout, inferenceSteps, retryPayload.NumInferenceSteps)
+		resp, responseBody, err = executeSiliconFlowImageRequest(ctx, endpoint, config.APIKey, retryBody, timeout)
 	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+config.APIKey)
-
-	resp, responseBody, err := doJSONRequestWithRetry(&http.Client{Timeout: 120 * time.Second}, req, 2, "SiliconFlow")
 	if err != nil {
+		if isContextDeadlineError(err) {
+			return "", fmt.Errorf("siliconflow image request failed: context deadline exceeded (timeout=%s, 可以通过 AI_IMAGE_TIMEOUT_SECONDS 增大超时)", timeout)
+		}
 		return "", fmt.Errorf("siliconflow image request failed: %w", err)
 	}
 	defer resp.Body.Close()
@@ -1064,7 +1141,7 @@ func generateVisualAssetWithOpenRouter(ctx context.Context, config imageGenerati
 	req.Header.Set("HTTP-Referer", getOpenRouterConfig().SiteURL)
 	req.Header.Set("X-Title", getOpenRouterConfig().SiteName)
 
-	resp, responseBody, err := doJSONRequestWithRetry(&http.Client{Timeout: 120 * time.Second}, req, 2, "OpenRouter")
+	resp, responseBody, err := doJSONRequestWithRetry(&http.Client{Timeout: resolveImageRequestTimeout(config)}, req, 2, "OpenRouter")
 	if err != nil {
 		return "", fmt.Errorf("openrouter image request failed: %w", err)
 	}
@@ -1294,8 +1371,6 @@ func initDB() {
 
 	// 自动迁移
 	db.AutoMigrate(&Memory{})
-	seedDefaultMemories(db)
-	cleanupLegacyOriginalImagePlaceholders(db)
 }
 
 func main() {
@@ -1400,7 +1475,7 @@ func testImageAIProvider(c *gin.Context) {
 	config := normalizeImageGenerationConfig(payload.Image)
 	testPrompt := "乡村田野、白墙黛瓦、晴天、真实摄影感"
 
-	ctx, cancel := context.WithTimeout(c.Request.Context(), 120*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), resolveImageWorkflowTimeout(config))
 	defer cancel()
 
 	previewURL, err := generateVisualAssetWithConfig(ctx, config, testPrompt, "", "deepseek")
@@ -1485,6 +1560,84 @@ func updateMemory(c *gin.Context) {
 	c.JSON(http.StatusOK, existing)
 }
 
+func isWithinGalleryDir(filePath string) bool {
+	galleryDirAbs, err := filepath.Abs(filepath.Join(".", "public", "gallery"))
+	if err != nil {
+		return false
+	}
+
+	fileAbs, err := filepath.Abs(filePath)
+	if err != nil {
+		return false
+	}
+
+	rel, err := filepath.Rel(galleryDirAbs, fileAbs)
+	if err != nil {
+		return false
+	}
+
+	if rel == "." {
+		return true
+	}
+
+	return rel != ".." && !strings.HasPrefix(rel, ".."+string(os.PathSeparator))
+}
+
+func removeGalleryImage(pathOrURL string) error {
+	trimmed := strings.TrimSpace(pathOrURL)
+	if trimmed == "" {
+		return nil
+	}
+
+	if parsed, err := url.Parse(trimmed); err == nil && parsed.Path != "" {
+		trimmed = parsed.Path
+	}
+
+	trimmed = strings.ReplaceAll(trimmed, "\\", "/")
+	trimmed = strings.TrimSpace(trimmed)
+
+	var candidatePath string
+	switch {
+	case strings.HasPrefix(trimmed, "/gallery/"):
+		rel := strings.TrimPrefix(trimmed, "/gallery/")
+		candidatePath = filepath.Join(".", "public", "gallery", filepath.FromSlash(rel))
+	case strings.HasPrefix(trimmed, "gallery/"):
+		rel := strings.TrimPrefix(trimmed, "gallery/")
+		candidatePath = filepath.Join(".", "public", "gallery", filepath.FromSlash(rel))
+	case strings.Contains(trimmed, "/public/gallery/"):
+		idx := strings.Index(trimmed, "/public/gallery/")
+		rel := strings.TrimPrefix(trimmed[idx+len("/public/gallery/"):], "/")
+		candidatePath = filepath.Join(".", "public", "gallery", filepath.FromSlash(rel))
+	default:
+		return nil
+	}
+
+	if !isWithinGalleryDir(candidatePath) {
+		return fmt.Errorf("resolved file path is outside gallery directory")
+	}
+
+	info, err := os.Stat(candidatePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+
+	if info.IsDir() {
+		return nil
+	}
+
+	if err := os.Remove(candidatePath); err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+
+	return nil
+}
+
 func deleteMemory(c *gin.Context) {
 	id := c.Param("id")
 
@@ -1494,7 +1647,19 @@ func deleteMemory(c *gin.Context) {
 		return
 	}
 
-	if err := db.Delete(&memory).Error; err != nil {
+	if err := removeGalleryImage(memory.OriginalImagePath); err != nil {
+		log.Printf("failed to remove original gallery image for memory %d: %v", memory.ID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete memory images"})
+		return
+	}
+
+	if err := removeGalleryImage(memory.RestoredImagePath); err != nil {
+		log.Printf("failed to remove restored gallery image for memory %d: %v", memory.ID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete memory images"})
+		return
+	}
+
+	if err := db.Unscoped().Delete(&memory).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete memory"})
 		return
 	}
@@ -1540,22 +1705,56 @@ func processAIMemory(c *gin.Context) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(c.Request.Context(), 120*time.Second)
-	defer cancel()
-
 	imageConfig := getImageGenerationConfig()
-	generatedImageURL, err := generateVisualAssetWithConfig(ctx, imageConfig, req.Prompt, "", req.Mode)
-	if err != nil {
-		log.Printf("AI image generation failed: %v", err)
-		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
-		return
+	workflowCtx, workflowCancel := context.WithCancel(c.Request.Context())
+	defer workflowCancel()
+
+	imageCtx, imageCancel := context.WithTimeout(workflowCtx, resolveImageWorkflowTimeout(imageConfig))
+	defer imageCancel()
+	textCtx, textCancel := context.WithTimeout(workflowCtx, 60*time.Second)
+	defer textCancel()
+
+	type taskResult struct {
+		kind  string
+		value string
+		err   error
 	}
 
-	polishedStory, err := polishMemoryStoryWithOpenRouter(ctx, req.Prompt)
-	if err != nil {
-		log.Printf("AI processing failed: %v", err)
-		c.JSON(http.StatusBadGateway, gin.H{"error": "AI 文本创作失败，请检查供应商配置或稍后重试"})
-		return
+	resultCh := make(chan taskResult, 2)
+
+	go func() {
+		generatedImageURL, err := generateVisualAssetWithConfig(imageCtx, imageConfig, req.Prompt, "", req.Mode)
+		resultCh <- taskResult{kind: "image", value: generatedImageURL, err: err}
+	}()
+
+	go func() {
+		polishedStory, err := polishMemoryStoryWithOpenRouter(textCtx, req.Prompt)
+		resultCh <- taskResult{kind: "text", value: polishedStory, err: err}
+	}()
+
+	var generatedImageURL string
+	var polishedStory string
+
+	for i := 0; i < 2; i++ {
+		result := <-resultCh
+		if result.err != nil {
+			workflowCancel()
+			if result.kind == "image" {
+				log.Printf("AI image generation failed: %v", result.err)
+				c.JSON(http.StatusBadGateway, gin.H{"error": result.err.Error()})
+				return
+			}
+
+			log.Printf("AI text generation failed: %v", result.err)
+			c.JSON(http.StatusBadGateway, gin.H{"error": "AI 文本创作失败，请检查供应商配置或稍后重试"})
+			return
+		}
+
+		if result.kind == "image" {
+			generatedImageURL = result.value
+		} else {
+			polishedStory = result.value
+		}
 	}
 
 	c.JSON(http.StatusOK, aiProcessResponse{
