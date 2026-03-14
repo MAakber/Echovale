@@ -7,6 +7,9 @@ import { API_BASE_URL } from "@/lib/constants";
 import { motion, AnimatePresence } from "framer-motion";
 import { Play, Pause, Search, Filter, MapPin, Info, ArrowRight, X } from "lucide-react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
+
+const LeafletMap = dynamic(() => import("./LeafletMap"), { ssr: false });
 
 interface ApiMemoryNode {
   id: number;
@@ -21,12 +24,30 @@ interface MemoryNode {
   id: string | number;
   name: string;
   year: number;
-  x: string;
-  y: string;
+  latitude: number;
+  longitude: number;
   type: string;
 }
 
-const DEMO_NODES: MemoryNode[] = [];
+const CHINA_CENTER: [number, number] = [35.8617, 104.1954];
+const CHINA_BOUNDS: [[number, number], [number, number]] = [[17.5, 73], [54.5, 136]];
+
+const toSafeCoordinate = (latitude?: number, longitude?: number): [number, number] => {
+  if (
+    typeof latitude === "number" &&
+    typeof longitude === "number" &&
+    latitude >= CHINA_BOUNDS[0][0] &&
+    latitude <= CHINA_BOUNDS[1][0] &&
+    longitude >= CHINA_BOUNDS[0][1] &&
+    longitude <= CHINA_BOUNDS[1][1]
+  ) {
+    return [latitude, longitude];
+  }
+
+  const fallbackLat = CHINA_CENTER[0] + (Math.random() * 10 - 5);
+  const fallbackLng = CHINA_CENTER[1] + (Math.random() * 14 - 7);
+  return [fallbackLat, fallbackLng];
+};
 
 export default function MapPage() {
   const toast = useToast();
@@ -34,6 +55,7 @@ export default function MapPage() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [selectedNodeId, setSelectedNodeId] = useState<string | number | null>(null);
   const [memoryNodes, setMemoryNodes] = useState<MemoryNode[]>([]);
+  const [isMapReady, setIsMapReady] = useState(false);
 
   // Time controller auto-play
   useEffect(() => {
@@ -64,11 +86,13 @@ export default function MapPage() {
 
         const data: ApiMemoryNode[] = await response.json();
         const mapped: MemoryNode[] = data.map((memory) => ({
+          ...(function () {
+            const [latitude, longitude] = toSafeCoordinate(memory.latitude, memory.longitude);
+            return { latitude, longitude };
+          })(),
           id: memory.id,
           name: memory.title,
           year: memory.year,
-          x: memory.longitude ? `${((memory.longitude - 73) / 62) * 100}%` : `${20 + Math.random() * 60}%`,
-          y: memory.latitude ? `${((54 - memory.latitude) / 36) * 100}%` : `${20 + Math.random() * 60}%`,
           type: memory.category,
         }));
 
@@ -159,62 +183,20 @@ export default function MapPage() {
         </div>
 
         {/* Map Area */}
-        <div className="flex-grow z-10 relative bg-[#f1f2f4] dark:bg-stone-950 flex items-center justify-center overflow-hidden">
-          {/* Map Grid Background */}
-          <div className="absolute inset-0 opacity-10 dark:opacity-5" style={{ 
-            backgroundImage: "radial-gradient(#000 1px, transparent 1px)", 
-            backgroundSize: "40px 40px" 
-          }}></div>
-
-          {/* Simple Map Visualization */}
-          <motion.div 
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="relative w-full h-full max-w-4xl max-h-[70%] bg-stone-200 dark:bg-stone-900/50 rounded-full blur-[100px] opacity-20 pointer-events-none"
-          ></motion.div>
-          
-          <div className="absolute inset-0 z-10">
-            {memoryNodes.map((node) => {
-              const isActive = selectedNodeId === node.id;
-              return (
-                <AnimatePresence key={node.id}>
-                  {node.year <= activeYear && (
-                    <motion.button
-                      initial={{ scale: 0, opacity: 0 }}
-                      animate={{ scale: isActive ? 1.5 : 1, opacity: 1, zIndex: isActive ? 40 : 10 }}
-                      exit={{ scale: 0, opacity: 0 }}
-                      whileHover={{ scale: isActive ? 1.5 : 1.2, zIndex: 30 }}
-                      style={{ left: node.x, top: node.y }}
-                      onClick={() => setSelectedNodeId(isActive ? null : node.id)}
-                      className={`absolute -translate-x-1/2 -translate-y-1/2 group transition-all`}
-                    >
-                      <div className="relative">
-                        {/* Pulse Effect */}
-                        <div className={`absolute inset-0 rounded-full animate-ping opacity-20 ${
-                          isActive ? "bg-purple-600 dark:bg-purple-400" : "bg-stone-900 dark:bg-stone-100"
-                        }`}></div>
-                        <div className={`relative w-4 h-4 rounded-full shadow-lg border-2 transition-colors ${
-                          isActive 
-                            ? "bg-purple-600 border-white dark:border-stone-900" 
-                            : "bg-stone-900 dark:bg-stone-100 border-white dark:border-stone-900"
-                        }`}></div>
-                        
-                        {/* Tooltip */}
-                        <div className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1 text-xs font-bold rounded whitespace-nowrap transition-opacity shadow-xl ${
-                          isActive 
-                            ? "opacity-100 bg-purple-600 text-white" 
-                            : "opacity-0 group-hover:opacity-100 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900"
-                        }`}>
-                          {node.name}
-                          {isActive && <div className="text-[10px] font-normal mt-0.5 opacity-80">{node.type} · {node.year}年</div>}
-                        </div>
-                      </div>
-                    </motion.button>
-                  )}
-                </AnimatePresence>
-              );
-            })}
-          </div>
+        <div className="flex-grow z-10 relative bg-[#f1f2f4] dark:bg-stone-950 overflow-hidden">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="absolute inset-0 z-0"
+          >
+            <LeafletMap
+              nodes={memoryNodes}
+              activeYear={activeYear}
+              selectedNodeId={selectedNodeId}
+              onSelectNode={setSelectedNodeId}
+              onMapReady={() => setIsMapReady(true)}
+            />
+          </motion.div>
 
           {/* Selected Node Details Overlay */}
           <AnimatePresence>
@@ -226,7 +208,7 @@ export default function MapPage() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 20 }}
-                  className="absolute top-6 right-6 w-72 bg-white/90 dark:bg-stone-900/90 backdrop-blur-md p-5 rounded-2xl shadow-2xl border border-white/50 dark:border-stone-800 z-40"
+                  className="absolute top-6 right-6 w-72 bg-white/90 dark:bg-stone-900/90 backdrop-blur-md p-5 rounded-2xl shadow-2xl border border-white/50 dark:border-stone-800 z-[1200]"
                 >
                   <button 
                     onClick={() => setSelectedNodeId(null)}
@@ -258,13 +240,16 @@ export default function MapPage() {
             })()}
           </AnimatePresence>
 
-          <div className="relative z-10 text-center pointer-events-none">
-             <div className="text-8xl mb-4 opacity-5">🗺️</div>
-             <p className="text-stone-400 dark:text-stone-500 font-medium">交互式地图引擎正在加载历史坐标...</p>
-          </div>
+          {!isMapReady && (
+            <div className="absolute inset-0 z-[1150] flex items-center justify-center pointer-events-none">
+              <div className="rounded-xl bg-white/80 dark:bg-stone-900/80 px-4 py-3 text-sm text-stone-600 dark:text-stone-300 backdrop-blur">
+                正在加载地图底图...
+              </div>
+            </div>
+          )}
 
           {/* Time Controller */}
-          <div className="absolute bottom-10 left-10 right-10 md:left-20 md:right-20 bg-white/90 dark:bg-stone-900/90 backdrop-blur-md p-6 rounded-2xl shadow-2xl border border-white/50 dark:border-stone-800 z-30">
+          <div className="absolute bottom-10 left-10 right-10 md:left-20 md:right-20 bg-white/90 dark:bg-stone-900/90 backdrop-blur-md p-6 rounded-2xl shadow-2xl border border-white/50 dark:border-stone-800 z-[1200]">
             <div className="flex justify-between text-xs font-bold text-stone-400 mb-4 px-2 tracking-widest uppercase">
               <span>1900 世纪之交</span>
               <span>1950 时代变迁</span>
