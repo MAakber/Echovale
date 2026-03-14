@@ -132,7 +132,10 @@ export default function AdminPage() {
                   AI 配置台
                 </Link>
                 <button
-                  onClick={loadMemories}
+                  type="button"
+                  onClick={() => {
+                    void loadMemories();
+                  }}
                   className="inline-flex items-center gap-2 rounded-full bg-stone-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-stone-800 dark:bg-stone-50 dark:text-stone-900 dark:hover:bg-stone-200"
                 >
                   <RefreshCw className="h-4 w-4" />
