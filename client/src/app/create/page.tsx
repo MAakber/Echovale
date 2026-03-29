@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
@@ -69,6 +69,50 @@ function formatCountdown(totalSeconds: number) {
   return `${minutes}:${seconds}`;
 }
 
+function buildStructuredPrompt(data: {
+  title: string;
+  category: string;
+  location: string;
+  year: number;
+  tags: string;
+  background: string;
+  eventTimeline: string;
+  oralNarrative: string;
+}) {
+  const title = data.title.trim() || "未命名记忆";
+  const category = data.category.trim() || "乡村记忆";
+  const location = data.location.trim() || "未指定地点";
+  const tags = data.tags
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .join("、") || "无";
+  const background = data.background.trim();
+  const eventTimeline = data.eventTimeline.trim();
+  const oralNarrative = data.oralNarrative.trim();
+
+  return [
+    "请基于以下结构化档案信息，先生成一段具备年代感和地方细节的中文叙事文本，再生成与文本一致的乡村场景图像。",
+    `标题：${title}`,
+    `分类：${category}`,
+    `地点：${location}`,
+    `年份：${data.year}`,
+    `关键词：${tags}`,
+    "背景：",
+    background || "未填写",
+    "事件节点：",
+    eventTimeline || "未填写",
+    "口述原文：",
+    oralNarrative || "未填写",
+  ].join("\n");
+}
+
+function composeDescription(data: { background: string; eventTimeline: string; oralNarrative: string }) {
+  return [data.oralNarrative.trim(), data.background.trim(), data.eventTimeline.trim()]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
 export default function CreatePage() {
   const router = useRouter();
   const toast = useToast();
@@ -82,12 +126,19 @@ export default function CreatePage() {
   const [formData, setFormData] = useState({
     title: "",
     category: "建筑",
-    description: "",
+    background: "",
+    eventTimeline: "",
+    oralNarrative: "",
+    tags: "",
     restoredImage: "",
     aiPolishedStory: "",
     location: "未指定",
     year: new Date().getFullYear(),
   });
+  const descriptionDraft = useMemo(
+    () => composeDescription(formData),
+    [formData.background, formData.eventTimeline, formData.oralNarrative]
+  );
 
   const aiRequestLockRef = useRef(false);
   const selectedToolMeta = getToolMeta(selectedTool);
@@ -118,10 +169,14 @@ export default function CreatePage() {
   };
 
   const nextStep = () => {
-    if (step === 1 && !formData.description.trim()) {
-      toast.warning({ title: "内容不完整", description: "请至少输入一段文字描述。" });
-      return;
+    if (step === 1) {
+      if (!descriptionDraft.trim()) {
+        toast.warning({ title: "内容不完整", description: "请在模板中补充“口述原文”或“背景”内容。" });
+        return;
+      }
+      toast.info({ title: "结构化内容已就绪", description: "已根据分板块输入准备生成内容。" });
     }
+
     setStep((prev) => Math.min(prev + 1, 3));
   };
 
@@ -134,7 +189,7 @@ export default function CreatePage() {
       return;
     }
 
-    if (!formData.description.trim()) {
+    if (!descriptionDraft.trim()) {
       toast.warning({ title: "内容不完整", description: "请先补充文字描述，再开始 AI 创作。" });
       setStep(1);
       return;
@@ -150,7 +205,7 @@ export default function CreatePage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          prompt: formData.description,
+          prompt: buildStructuredPrompt(formData),
           mode: selectedTool,
         }),
       });
@@ -193,7 +248,7 @@ export default function CreatePage() {
         body: JSON.stringify({
           title: formData.title || "未命名记忆",
           category: formData.category,
-          description: formData.description,
+          description: descriptionDraft,
           ai_polished_story: formData.aiPolishedStory,
           location: formData.location,
           latitude: 25 + Math.random() * 15,
@@ -202,6 +257,7 @@ export default function CreatePage() {
           original_image_path: "",
           restored_image_path: formData.restoredImage,
           author: "匿名贡献者",
+          tags: formData.tags,
         }),
       });
 
@@ -238,7 +294,7 @@ export default function CreatePage() {
               <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
                 {[
                   { label: "输入", value: "纯文字描述" },
-                  { label: "文本", value: `${formData.description.trim().length} 字描述` },
+                  { label: "文本", value: `${descriptionDraft.trim().length} 字描述` },
                   { label: "输出", value: "统一文生图" },
                 ].map((item) => (
                   <div key={item.label} className="rounded-[1.5rem] border border-stone-200 bg-stone-50/90 p-4 dark:border-stone-800 dark:bg-stone-950/70">
@@ -287,30 +343,133 @@ export default function CreatePage() {
                 <div className="space-y-8">
                   <div>
                     <p className="text-sm font-semibold uppercase tracking-[0.2em] text-stone-400">素材准备</p>
-                    <h2 className="mt-3 text-3xl font-bold">先把记忆讲清楚</h2>
+                    <h2 className="mt-3 text-3xl font-bold">在一个大模块里分板块填写</h2>
                     <p className="mt-3 max-w-2xl text-sm leading-7 text-stone-500 dark:text-stone-400 md:text-base">
-                      这一版不再提供图片输入，真正驱动生成的是下面这段文字。尽量写清人物、地点、时间和你记得的细节，输出会稳定很多。
+                      取消一锅炖输入，改为地点、年份、关键词、背景、事件节点、口述原文等小板块，但它们仍处于同一个录入模块，并会自动组合成 AI 输入。
                     </p>
                   </div>
 
                   <div className="rounded-[1.75rem] border border-stone-200 bg-stone-50/80 p-6 dark:border-stone-800 dark:bg-stone-950/60">
-                      <div className="mb-5 inline-flex rounded-2xl bg-white p-3 text-stone-900 shadow-sm dark:bg-stone-900 dark:text-stone-50">
-                        <NotebookPen className="h-6 w-6" />
+                    <div className="mb-5 inline-flex rounded-2xl bg-white p-3 text-stone-900 shadow-sm dark:bg-stone-900 dark:text-stone-50">
+                      <NotebookPen className="h-6 w-6" />
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div>
+                        <label className="block text-xs font-semibold uppercase tracking-[0.18em] text-stone-400">标题</label>
+                        <input
+                          type="text"
+                          value={formData.title}
+                          onChange={(event) => {
+                            resetAIResult();
+                            setFormData((prev) => ({ ...prev, title: event.target.value }));
+                          }}
+                          className="mt-2 w-full rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-stone-400 dark:border-stone-800 dark:bg-stone-900"
+                          placeholder="例如：老槐树下的秋收夜"
+                        />
                       </div>
-                      <label className="block text-sm font-semibold text-stone-700 dark:text-stone-300">记忆描述</label>
-                      <textarea
-                        value={formData.description}
-                        onChange={(event) => {
-                          resetAIResult();
-                          setFormData((prev) => ({ ...prev, description: event.target.value }));
-                        }}
-                        className="mt-4 h-64 w-full rounded-[1.4rem] border border-stone-200 bg-white px-5 py-4 text-sm leading-7 text-stone-900 outline-none transition focus:border-stone-400 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-100"
-                        placeholder="例如：那年秋收后，村口晒场堆满玉米，老人坐在石凳上剥苞谷，风里有柴火和泥土的味道……"
-                      />
-                      <div className="mt-4 flex items-center justify-between text-xs text-stone-400 dark:text-stone-500">
-                        <span>建议写出时间、地点、人物和一个最具体的场景动作。</span>
-                        <span>{formData.description.trim().length} 字</span>
+                      <div>
+                        <label className="block text-xs font-semibold uppercase tracking-[0.18em] text-stone-400">分类</label>
+                        <select
+                          value={formData.category}
+                          onChange={(event) => {
+                            resetAIResult();
+                            setFormData((prev) => ({ ...prev, category: event.target.value }));
+                          }}
+                          className="mt-2 w-full rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-stone-400 dark:border-stone-800 dark:bg-stone-900"
+                        >
+                          <option value="建筑">建筑</option>
+                          <option value="民俗">民俗</option>
+                          <option value="人物">人物</option>
+                          <option value="历史">历史</option>
+                          <option value="非遗">非遗</option>
+                        </select>
                       </div>
+                      <div>
+                        <label className="block text-xs font-semibold uppercase tracking-[0.18em] text-stone-400">地点</label>
+                        <input
+                          type="text"
+                          value={formData.location}
+                          onChange={(event) => {
+                            resetAIResult();
+                            setFormData((prev) => ({ ...prev, location: event.target.value || "未指定" }));
+                          }}
+                          className="mt-2 w-full rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-stone-400 dark:border-stone-800 dark:bg-stone-900"
+                          placeholder="例如：安徽省黄山市黟县宏村"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold uppercase tracking-[0.18em] text-stone-400">年份</label>
+                        <input
+                          type="number"
+                          value={formData.year}
+                          onChange={(event) => {
+                            resetAIResult();
+                            const nextYear = Number.parseInt(event.target.value, 10);
+                            setFormData((prev) => ({
+                              ...prev,
+                              year: Number.isFinite(nextYear) ? nextYear : prev.year,
+                            }));
+                          }}
+                          className="mt-2 w-full rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-stone-400 dark:border-stone-800 dark:bg-stone-900"
+                        />
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="block text-xs font-semibold uppercase tracking-[0.18em] text-stone-400">关键词</label>
+                        <input
+                          type="text"
+                          value={formData.tags}
+                          onChange={(event) => {
+                            resetAIResult();
+                            setFormData((prev) => ({ ...prev, tags: event.target.value }));
+                          }}
+                          className="mt-2 w-full rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-stone-400 dark:border-stone-800 dark:bg-stone-900"
+                          placeholder="例如：宏村, 秋收, 晒场, 老槐树"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="mt-6 grid gap-4">
+                      <div>
+                        <label className="block text-sm font-semibold text-stone-700 dark:text-stone-300">背景</label>
+                        <textarea
+                          value={formData.background}
+                          onChange={(event) => {
+                            resetAIResult();
+                            setFormData((prev) => ({ ...prev, background: event.target.value }));
+                          }}
+                          className="mt-2 h-24 w-full rounded-[1.2rem] border border-stone-200 bg-white px-4 py-3 text-sm leading-7 text-stone-900 outline-none transition focus:border-stone-400 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-100"
+                          placeholder="描述时代背景、环境和村庄状态"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-stone-700 dark:text-stone-300">事件节点</label>
+                        <textarea
+                          value={formData.eventTimeline}
+                          onChange={(event) => {
+                            resetAIResult();
+                            setFormData((prev) => ({ ...prev, eventTimeline: event.target.value }));
+                          }}
+                          className="mt-2 h-24 w-full rounded-[1.2rem] border border-stone-200 bg-white px-4 py-3 text-sm leading-7 text-stone-900 outline-none transition focus:border-stone-400 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-100"
+                          placeholder="例如：1987年9月：全村集中晾晒"
+                        />
+                      </div>
+                    </div>
+
+                    <label className="mt-6 block text-sm font-semibold text-stone-700 dark:text-stone-300">口述原文</label>
+                    <textarea
+                      value={formData.oralNarrative}
+                      onChange={(event) => {
+                        resetAIResult();
+                        setFormData((prev) => ({ ...prev, oralNarrative: event.target.value }));
+                      }}
+                      className="mt-2 h-48 w-full rounded-[1.4rem] border border-stone-200 bg-white px-5 py-4 text-sm leading-7 text-stone-900 outline-none transition focus:border-stone-400 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-100"
+                      placeholder="例如：那年秋收后，村口晒场堆满玉米，老人坐在石凳上剥苞谷……"
+                    />
+                    <div className="mt-4 flex items-center justify-between text-xs text-stone-400 dark:text-stone-500">
+                      <span>这些小板块会自动组合成统一 AI 输入。</span>
+                      <span>{descriptionDraft.trim().length} 字</span>
+                    </div>
                   </div>
                 </div>
               )}
@@ -502,11 +661,15 @@ export default function CreatePage() {
                   </div>
                   <div>
                     <p className="text-sm text-stone-400">素材状态</p>
-                    <p className="mt-1 text-lg font-semibold">仅文字创作</p>
+                    <p className="mt-1 text-lg font-semibold">标准模板 + 文字创作</p>
                   </div>
                   <div>
                     <p className="text-sm text-stone-400">文本准备度</p>
-                    <p className="mt-1 text-lg font-semibold">{formData.description.trim() ? "已填写描述" : "待补充描述"}</p>
+                    <p className="mt-1 text-lg font-semibold">{descriptionDraft.trim() ? "已填写描述" : "待补充描述"}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-stone-400">关键词</p>
+                    <p className="mt-1 text-lg font-semibold">{formData.tags.trim() || "未填写"}</p>
                   </div>
                 </div>
               </div>
