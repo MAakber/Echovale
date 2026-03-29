@@ -76,6 +76,10 @@ function resolveMemoryYear(year?: number, createdAt?: string): number {
   return 0;
 }
 
+function formatEndYearLabel(value: number, currentYear: number): string {
+  return value >= currentYear ? String(currentYear) : String(value);
+}
+
 export default function MemoriesPage() {
   const toast = useToast();
   const [loading, setLoading] = useState(true);
@@ -101,12 +105,13 @@ export default function MemoriesPage() {
   const hasYearData = years.length > 0;
   const timelinePaddingYears = 40;
   const minTimelineYear = 1900;
-  const defaultMaxYear = new Date().getFullYear();
-  const defaultMinYear = defaultMaxYear - 100;
+  const currentYear = new Date().getFullYear();
+  const defaultMaxYear = currentYear;
+  const defaultMinYear = currentYear - 100;
   const dataMinYear = hasYearData ? Math.min(...years) : defaultMinYear;
-  const dataMaxYear = hasYearData ? Math.max(...years) : defaultMaxYear;
+  const dataMaxYear = hasYearData ? Math.min(Math.max(...years), currentYear) : defaultMaxYear;
   const minYear = Math.max(minTimelineYear, dataMinYear - timelinePaddingYears);
-  const maxYear = Math.max(defaultMaxYear, dataMaxYear + 5);
+  const maxYear = Math.max(defaultMaxYear, dataMaxYear);
 
   const fromPercent = calculatePercent(yearRange?.from ?? minYear, minYear, maxYear);
   const toPercent = calculatePercent(yearRange?.to ?? maxYear, minYear, maxYear);
@@ -273,7 +278,7 @@ export default function MemoriesPage() {
                 </div>
                 <div className="rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 dark:border-stone-700 dark:bg-stone-800/70">
                   <p className="text-xs text-stone-400">最新年份</p>
-                  <p className="mt-1 text-lg font-bold">{maxYear || "-"}</p>
+                  <p className="mt-1 text-lg font-bold">{formatEndYearLabel(maxYear, currentYear)}</p>
                 </div>
               </div>
             </div>
@@ -313,7 +318,9 @@ export default function MemoriesPage() {
                   <p className="mt-1 text-[11px] tracking-wide text-stone-400 dark:text-stone-500">时间跨度 {timelineSpan} 年</p>
                 </div>
                 <span className="rounded-full border border-stone-300 bg-white/80 px-3 py-1 text-xs font-semibold text-stone-700 shadow-sm backdrop-blur dark:border-stone-600 dark:bg-stone-800/70 dark:text-stone-100">
-                  {yearRange ? `${yearRange.from} - ${yearRange.to}` : `${minYear} - ${maxYear}`}
+                  {yearRange
+                    ? `${yearRange.from} - ${formatEndYearLabel(yearRange.to, currentYear)}`
+                    : `${minYear} - ${formatEndYearLabel(maxYear, currentYear)}`}
                 </span>
               </div>
 
@@ -328,7 +335,7 @@ export default function MemoriesPage() {
                   <span className="font-semibold text-stone-600 dark:text-stone-300">拖动年份区间</span>
                   <div className="flex items-center gap-2">
                     <span className="rounded-full border border-stone-200 bg-stone-100 px-2 py-0.5 font-semibold text-stone-700 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-200">起: {yearRange?.from ?? "-"}</span>
-                    <span className="rounded-full border border-emerald-200 bg-emerald-100 px-2 py-0.5 font-semibold text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-900/30 dark:text-emerald-300">止: {yearRange?.to ?? "-"}</span>
+                    <span className="rounded-full border border-emerald-200 bg-emerald-100 px-2 py-0.5 font-semibold text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-900/30 dark:text-emerald-300">止: {yearRange ? formatEndYearLabel(yearRange.to, currentYear) : "-"}</span>
                   </div>
                 </div>
 
@@ -386,7 +393,7 @@ export default function MemoriesPage() {
                       transform: "translateX(-50%)",
                     }}
                   >
-                    {yearRange?.to ?? maxYear}
+                    {formatEndYearLabel(yearRange?.to ?? maxYear, currentYear)}
                   </div>
 
                   <div className="absolute left-0 top-1/2 h-2.5 w-full -translate-y-1/2 rounded-full bg-linear-to-r from-stone-300 via-stone-200 to-stone-300 shadow-inner dark:from-stone-700 dark:via-stone-600 dark:to-stone-700" />
@@ -431,7 +438,7 @@ export default function MemoriesPage() {
                         style={{ left: `${tickPercent}%` }}
                       >
                         <div className="mx-auto h-2 w-px bg-stone-500 dark:bg-stone-400" />
-                        <div className="mt-1 rounded-full bg-stone-100/90 px-1.5 py-0.5 text-[11px] font-semibold tracking-wide text-stone-700 shadow-sm dark:bg-stone-800 dark:text-stone-200">{tick}</div>
+                        <div className="mt-1 rounded-full bg-stone-100/90 px-1.5 py-0.5 text-[11px] font-semibold tracking-wide text-stone-700 shadow-sm dark:bg-stone-800 dark:text-stone-200">{tick === maxYear ? formatEndYearLabel(tick, currentYear) : tick}</div>
                       </div>
                     );
                   })}
@@ -495,7 +502,7 @@ export default function MemoriesPage() {
             {category !== "全部" && <span className="rounded-full bg-amber-100 px-3 py-1 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">分类: {category}</span>}
             {town !== "全部" && <span className="rounded-full bg-emerald-100 px-3 py-1 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200">城镇: {town}</span>}
             {keyword.trim() && <span className="rounded-full bg-sky-100 px-3 py-1 text-sky-800 dark:bg-sky-900/30 dark:text-sky-200">关键词: {keyword.trim()}</span>}
-            {yearRange && <span className="rounded-full bg-violet-100 px-3 py-1 text-violet-800 dark:bg-violet-900/30 dark:text-violet-200">年代: {yearRange.from} - {yearRange.to}</span>}
+            {yearRange && <span className="rounded-full bg-violet-100 px-3 py-1 text-violet-800 dark:bg-violet-900/30 dark:text-violet-200">年代: {yearRange.from} - {formatEndYearLabel(yearRange.to, currentYear)}</span>}
           </div>
 
           {loading ? (

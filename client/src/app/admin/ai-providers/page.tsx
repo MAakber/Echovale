@@ -39,6 +39,92 @@ interface ProviderTestResult {
   model?: string;
   sample_output?: string;
   preview_url?: string;
+  error?: string;
+}
+
+async function parseJSONResponse<T>(response: Response): Promise<T | null> {
+  const raw = await response.text();
+  if (!raw.trim()) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    throw new Error("服务端返回了非 JSON 响应");
+  }
+}
+
+function normalizeTextProviderBaseUrl(baseUrl: string): string {
+  const trimmed = baseUrl.trim().replace(/\/+$/, "");
+  if (!trimmed) {
+    return trimmed;
+  }
+
+  const lower = trimmed.toLowerCase();
+  const isVolcengineArk =
+    lower.includes("ark.cn-") ||
+    lower.includes("volces.com") ||
+    lower.includes("volcengineapi.com");
+
+  if (isVolcengineArk) {
+    const hostMatch = trimmed.match(/^https?:\/\/[^/]+/i);
+    if (!hostMatch) {
+      return "https://ark.cn-beijing.volces.com/api/v3/chat/completions";
+    }
+    return `${hostMatch[0]}/api/v3/chat/completions`;
+  }
+
+  if (lower.includes("/responses/chat/")) {
+    return trimmed.replace(/\/responses\/chat\/[^/]+$/i, "/chat/completions");
+  }
+
+  return trimmed;
+}
+
+function normalizeTextProviderConfig(config: TextProviderConfig): TextProviderConfig {
+  return {
+    ...config,
+    base_url: normalizeTextProviderBaseUrl(config.base_url),
+  };
+}
+
+function normalizeImageProviderBaseUrl(baseUrl: string): string {
+  const trimmed = baseUrl.trim().replace(/\/+$/, "");
+  if (!trimmed) {
+    return trimmed;
+  }
+
+  const lower = trimmed.toLowerCase();
+  const isVolcengineArk =
+    lower.includes("ark.cn-") ||
+    lower.includes("volces.com") ||
+    lower.includes("volcengineapi.com");
+
+  if (isVolcengineArk) {
+    const hostMatch = trimmed.match(/^https?:\/\/[^/]+/i);
+    if (!hostMatch) {
+      return "https://ark.cn-beijing.volces.com/api/v3/images/generations";
+    }
+    return `${hostMatch[0]}/api/v3/images/generations`;
+  }
+
+  return trimmed;
+}
+
+function normalizeImageProviderConfig(config: ImageProviderConfig): ImageProviderConfig {
+  const normalizedBaseUrl = normalizeImageProviderBaseUrl(config.base_url);
+  const lower = normalizedBaseUrl.toLowerCase();
+  const isVolcengineArk =
+    lower.includes("ark.cn-") ||
+    lower.includes("volces.com") ||
+    lower.includes("volcengineapi.com");
+
+  return {
+    ...config,
+    provider_name: isVolcengineArk ? "Volcengine Ark" : config.provider_name,
+    base_url: normalizedBaseUrl,
+  };
 }
 
 const EMPTY_SETTINGS: AIProviderSettings = {
@@ -79,7 +165,10 @@ export default function AdminAIProvidersPage() {
         throw new Error("failed to fetch settings");
       }
 
-      const data: AIProviderSettings = await response.json();
+      const data = await parseJSONResponse<AIProviderSettings>(response);
+      if (!data) {
+        throw new Error("读取 AI 配置失败: 返回内容为空");
+      }
       setSettings(data);
     } catch {
       toast.error({ title: "读取 AI 配置失败", description: "请确认后端服务已经启动。" });
@@ -110,15 +199,31 @@ export default function AdminAIProvidersPage() {
     setSaving(true);
 
     try {
+      const normalizedText = normalizeTextProviderConfig(settings.text);
+      const normalizedImage = normalizeImageProviderConfig(settings.image);
+      const payload: AIProviderSettings = { ...settings, text: normalizedText, image: normalizedImage };
+      if (normalizedText.base_url !== settings.text.base_url) {
+        setSettings((current) => ({ ...current, text: normalizedText }));
+      }
+      if (
+        normalizedImage.base_url !== settings.image.base_url ||
+        normalizedImage.provider_name !== settings.image.provider_name
+      ) {
+        setSettings((current) => ({ ...current, image: normalizedImage }));
+      }
+
       const response = await fetch(`${API_BASE_URL}/api/v1/admin/ai-providers`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(settings),
+        body: JSON.stringify(payload),
       });
 
-      const result = await response.json();
+      const result = await parseJSONResponse<AIProviderSettings & { error?: string }>(response);
       if (!response.ok) {
-        throw new Error(result.error || "保存失败");
+        throw new Error(result?.error || `保存失败（HTTP ${response.status}）`);
+      }
+      if (!result) {
+        throw new Error("保存失败: 返回内容为空");
       }
 
       setSettings(result);
@@ -138,16 +243,24 @@ export default function AdminAIProvidersPage() {
     const timeoutId = window.setTimeout(() => controller.abort(), 22000);
 
     try {
+      const normalizedText = normalizeTextProviderConfig(settings.text);
+      if (normalizedText.base_url !== settings.text.base_url) {
+        setSettings((current) => ({ ...current, text: normalizedText }));
+      }
+
       const response = await fetch(`${API_BASE_URL}/api/v1/admin/ai-providers/test-text`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: settings.text }),
+        body: JSON.stringify({ text: normalizedText }),
         signal: controller.signal,
       });
 
-      const result = await response.json();
+      const result = await parseJSONResponse<ProviderTestResult>(response);
       if (!response.ok) {
-        throw new Error(result.error || "文本供应商测试失败");
+        throw new Error(result?.error || `文本供应商测试失败（HTTP ${response.status}）`);
+      }
+      if (!result) {
+        throw new Error("文本供应商测试失败: 返回内容为空");
       }
 
       setTextTestResult(result);
@@ -171,15 +284,26 @@ export default function AdminAIProvidersPage() {
     setImageTestResult(null);
 
     try {
+      const normalizedImage = normalizeImageProviderConfig(settings.image);
+      if (
+        normalizedImage.base_url !== settings.image.base_url ||
+        normalizedImage.provider_name !== settings.image.provider_name
+      ) {
+        setSettings((current) => ({ ...current, image: normalizedImage }));
+      }
+
       const response = await fetch(`${API_BASE_URL}/api/v1/admin/ai-providers/test-image`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image: settings.image }),
+        body: JSON.stringify({ image: normalizedImage }),
       });
 
-      const result = await response.json();
+      const result = await parseJSONResponse<ProviderTestResult>(response);
       if (!response.ok) {
-        throw new Error(result.error || "图片供应商测试失败");
+        throw new Error(result?.error || `图片供应商测试失败（HTTP ${response.status}）`);
+      }
+      if (!result) {
+        throw new Error("图片供应商测试失败: 返回内容为空");
       }
 
       setImageTestResult(result);

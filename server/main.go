@@ -169,6 +169,22 @@ type siliconFlowImageResponse struct {
 	Message string `json:"message,omitempty"`
 }
 
+type volcengineArkImageRequest struct {
+	Model  string `json:"model"`
+	Prompt string `json:"prompt"`
+	Size   string `json:"size,omitempty"`
+}
+
+type volcengineArkImageResponse struct {
+	Data []struct {
+		URL string `json:"url"`
+	} `json:"data"`
+	Error *struct {
+		Message string `json:"message"`
+		Code    string `json:"code,omitempty"`
+	} `json:"error"`
+}
+
 func buildOpenRouterErrorMessage(message string, metadataRaw string, providerName string) string {
 	message = strings.TrimSpace(message)
 	metadataRaw = strings.TrimSpace(metadataRaw)
@@ -203,6 +219,42 @@ func isSiliconFlowImageProvider(config imageGenerationConfig) bool {
 		strings.Contains(model, "kolors")
 }
 
+func isVolcengineArkImageProvider(config imageGenerationConfig) bool {
+	providerName := strings.ToLower(strings.TrimSpace(config.ProviderName))
+	baseURL := strings.ToLower(strings.TrimSpace(config.BaseURL))
+	model := strings.ToLower(strings.TrimSpace(config.Model))
+
+	return strings.Contains(baseURL, "ark.cn-") ||
+		strings.Contains(baseURL, "volces.com") ||
+		strings.Contains(baseURL, "volcengineapi.com") ||
+		strings.Contains(providerName, "doubao") ||
+		strings.Contains(providerName, "ark") ||
+		strings.Contains(model, "doubao") ||
+		strings.Contains(model, "seedream")
+}
+
+func buildVolcengineArkImageEndpoint(baseURL string) string {
+	trimmed := strings.TrimRight(strings.TrimSpace(baseURL), "/")
+	if trimmed == "" {
+		return "https://ark.cn-beijing.volces.com/api/v3/images/generations"
+	}
+
+	lower := strings.ToLower(trimmed)
+	if strings.HasSuffix(lower, "/api/v3/images/generations") {
+		return trimmed
+	}
+
+	parsed, err := url.Parse(trimmed)
+	if err != nil {
+		return "https://ark.cn-beijing.volces.com/api/v3/images/generations"
+	}
+
+	parsed.Path = "/api/v3/images/generations"
+	parsed.RawQuery = ""
+	parsed.Fragment = ""
+	return parsed.String()
+}
+
 func buildSiliconFlowImageEndpoint(baseURL string) string {
 	trimmed := strings.TrimRight(strings.TrimSpace(baseURL), "/")
 	if strings.HasSuffix(strings.ToLower(trimmed), "/images/generations") {
@@ -228,9 +280,26 @@ func isSiliconFlowTextProvider(config openRouterConfig) bool {
 		strings.Contains(baseURL, "api.siliconflow.cn")
 }
 
+func isVolcengineArkTextProvider(config openRouterConfig) bool {
+	baseURL := strings.ToLower(strings.TrimSpace(config.BaseURL))
+	providerName := strings.ToLower(strings.TrimSpace(config.ProviderName))
+	model := strings.ToLower(strings.TrimSpace(config.Model))
+
+	return strings.Contains(baseURL, "ark.cn-") ||
+		strings.Contains(baseURL, "volces.com") ||
+		strings.Contains(baseURL, "volcengineapi.com") ||
+		strings.Contains(providerName, "doubao") ||
+		strings.Contains(model, "doubao")
+}
+
 func hasChatCompletionsPath(rawURL string) bool {
 	trimmed := strings.TrimRight(strings.TrimSpace(rawURL), "/")
 	return strings.HasSuffix(strings.ToLower(trimmed), "/chat/completions")
+}
+
+func hasInvalidResponsesChatCompletionsPath(rawURL string) bool {
+	trimmed := strings.TrimRight(strings.TrimSpace(rawURL), "/")
+	return strings.Contains(strings.ToLower(trimmed), "/responses/chat/completions")
 }
 
 func buildSiliconFlowTextEndpoint(baseURL string) string {
@@ -246,12 +315,24 @@ func buildSiliconFlowTextEndpoint(baseURL string) string {
 
 func buildOpenRouterTextEndpoint(baseURL string) string {
 	trimmed := strings.TrimRight(strings.TrimSpace(baseURL), "/")
-	if trimmed == "" || hasChatCompletionsPath(trimmed) {
+	if trimmed == "" {
+		return trimmed
+	}
+
+	if hasInvalidResponsesChatCompletionsPath(trimmed) {
+		return strings.Replace(trimmed, "/responses/chat/completions", "/chat/completions", 1)
+	}
+
+	if hasChatCompletionsPath(trimmed) {
 		return trimmed
 	}
 
 	parsed, err := url.Parse(trimmed)
 	if err != nil {
+		lower := strings.ToLower(strings.TrimRight(trimmed, "/"))
+		if strings.HasSuffix(lower, "/api/v3/responses") {
+			return strings.TrimSuffix(trimmed, "/responses") + "/chat/completions"
+		}
 		if strings.HasSuffix(strings.ToLower(trimmed), "/api/v1") {
 			return trimmed + "/chat/completions"
 		}
@@ -259,6 +340,14 @@ func buildOpenRouterTextEndpoint(baseURL string) string {
 	}
 
 	path := strings.TrimRight(parsed.Path, "/")
+	lowerPath := strings.ToLower(path)
+
+	// Volcengine Ark 的 responses API 与 chat/completions 是不同协议，这里强制归一到聊天补全端点。
+	if strings.HasSuffix(lowerPath, "/api/v3/responses") {
+		parsed.Path = "/api/v3/chat/completions"
+		return parsed.String()
+	}
+
 	switch strings.ToLower(path) {
 	case "", "/":
 		parsed.Path = "/api/v1/chat/completions"
@@ -273,10 +362,31 @@ func buildOpenRouterTextEndpoint(baseURL string) string {
 	return parsed.String()
 }
 
+func buildVolcengineArkTextEndpoint(baseURL string) string {
+	trimmed := strings.TrimSpace(baseURL)
+	if trimmed == "" {
+		return ""
+	}
+
+	parsed, err := url.Parse(trimmed)
+	if err != nil {
+		return "https://ark.cn-beijing.volces.com/api/v3/chat/completions"
+	}
+
+	parsed.Path = "/api/v3/chat/completions"
+	parsed.RawQuery = ""
+	parsed.Fragment = ""
+	return parsed.String()
+}
+
 func normalizeTextProviderBaseURL(config openRouterConfig) string {
 	trimmed := strings.TrimSpace(config.BaseURL)
 	if trimmed == "" || hasChatCompletionsPath(trimmed) {
 		return trimmed
+	}
+
+	if isVolcengineArkTextProvider(config) {
+		return buildVolcengineArkTextEndpoint(trimmed)
 	}
 
 	if isOpenRouterTextProvider(config) {
@@ -704,6 +814,9 @@ func normalizeImageGenerationConfig(config imageGenerationConfig) imageGeneratio
 	if config.ProviderName == "" {
 		config.ProviderName = defaultConfig.ProviderName
 	}
+	if isVolcengineArkImageProvider(config) {
+		config.ProviderName = "Volcengine Ark"
+	}
 	config.APIKey = strings.TrimSpace(config.APIKey)
 	if config.APIKey == "" && isOpenRouterImageProvider(config) {
 		config.APIKey = defaultConfig.APIKey
@@ -711,6 +824,9 @@ func normalizeImageGenerationConfig(config imageGenerationConfig) imageGeneratio
 	config.BaseURL = strings.TrimSpace(config.BaseURL)
 	if config.BaseURL == "" {
 		config.BaseURL = defaultConfig.BaseURL
+	}
+	if isVolcengineArkImageProvider(config) {
+		config.BaseURL = buildVolcengineArkImageEndpoint(config.BaseURL)
 	}
 	config.Model = strings.TrimSpace(config.Model)
 	if config.Model == "" {
@@ -1154,7 +1270,13 @@ func generateVisualAssetWithOpenRouter(ctx context.Context, config imageGenerati
 
 	if resp.StatusCode >= http.StatusBadRequest {
 		if result.Error != nil && result.Error.Message != "" {
-			return "", fmt.Errorf("openrouter image error: %s", buildOpenRouterErrorMessage(result.Error.Message, result.Error.Metadata.Raw, result.Error.Metadata.ProviderName))
+			metadataRaw := ""
+			metadataProviderName := ""
+			if result.Error.Metadata != nil {
+				metadataRaw = result.Error.Metadata.Raw
+				metadataProviderName = result.Error.Metadata.ProviderName
+			}
+			return "", fmt.Errorf("openrouter image error: %s", buildOpenRouterErrorMessage(result.Error.Message, metadataRaw, metadataProviderName))
 		}
 		return "", fmt.Errorf("openrouter image error: status %d body %s", resp.StatusCode, strings.TrimSpace(string(responseBody)))
 	}
@@ -1164,6 +1286,62 @@ func generateVisualAssetWithOpenRouter(ctx context.Context, config imageGenerati
 	}
 
 	return saveOpenRouterImageResult(ctx, result.Choices[0].Message.Images[0].ImageURL.URL)
+}
+
+func generateVisualAssetWithVolcengineArk(ctx context.Context, config imageGenerationConfig, prompt, imageURL, mode string) (string, error) {
+	if strings.TrimSpace(config.APIKey) == "" {
+		return "", fmt.Errorf("Volcengine Ark image api key is not configured")
+	}
+	if strings.TrimSpace(config.Model) == "" {
+		return "", fmt.Errorf("Volcengine Ark image model is not configured")
+	}
+
+	payload := volcengineArkImageRequest{
+		Model:  strings.TrimSpace(config.Model),
+		Prompt: buildVisualGenerationPrompt(prompt, "", mode),
+		Size:   buildImageSize(config),
+	}
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return "", fmt.Errorf("marshal volcengine image request failed: %w", err)
+	}
+
+	endpoint := buildVolcengineArkImageEndpoint(config.BaseURL)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
+	if err != nil {
+		return "", fmt.Errorf("create volcengine image request failed: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(config.APIKey))
+
+	resp, responseBody, err := doJSONRequestWithRetry(&http.Client{Timeout: resolveImageRequestTimeout(config)}, req, 2, "Volcengine Ark")
+	if err != nil {
+		return "", fmt.Errorf("volcengine image request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var result volcengineArkImageResponse
+	if err := json.Unmarshal(responseBody, &result); err != nil {
+		return "", buildJSONDecodeError("decode volcengine image response", resp.StatusCode, responseBody, err)
+	}
+
+	if resp.StatusCode >= http.StatusBadRequest {
+		if result.Error != nil && strings.TrimSpace(result.Error.Message) != "" {
+			if strings.TrimSpace(result.Error.Code) != "" {
+				return "", fmt.Errorf("volcengine image error: %s (%s)", strings.TrimSpace(result.Error.Message), strings.TrimSpace(result.Error.Code))
+			}
+			return "", fmt.Errorf("volcengine image error: %s", strings.TrimSpace(result.Error.Message))
+		}
+		return "", fmt.Errorf("volcengine image error: status %d body %s", resp.StatusCode, strings.TrimSpace(string(responseBody)))
+	}
+
+	if len(result.Data) == 0 || strings.TrimSpace(result.Data[0].URL) == "" {
+		return "", fmt.Errorf("volcengine returned no generated images")
+	}
+
+	return saveOpenRouterImageResult(ctx, result.Data[0].URL)
 }
 
 func generateVisualAsset(ctx context.Context, prompt, imageURL, mode string) (string, error) {
@@ -1178,6 +1356,9 @@ func generateVisualAssetWithConfig(ctx context.Context, config imageGenerationCo
 
 	if isOpenRouterImageProvider(config) {
 		return generateVisualAssetWithOpenRouter(ctx, config, prompt, imageURL, mode)
+	}
+	if isVolcengineArkImageProvider(config) {
+		return generateVisualAssetWithVolcengineArk(ctx, config, prompt, imageURL, mode)
 	}
 	if isSiliconFlowImageProvider(config) {
 		return generateVisualAssetWithSiliconFlow(ctx, config, prompt, imageURL, mode)
@@ -1273,7 +1454,13 @@ func testTextProviderWithConfig(ctx context.Context, config openRouterConfig) (s
 
 	if resp.StatusCode >= http.StatusBadRequest {
 		if result.Error != nil && result.Error.Message != "" {
-			return "", fmt.Errorf("text provider error: %s", buildOpenRouterErrorMessage(result.Error.Message, result.Error.Metadata.Raw, result.Error.Metadata.ProviderName))
+			metadataRaw := ""
+			metadataProviderName := ""
+			if result.Error.Metadata != nil {
+				metadataRaw = result.Error.Metadata.Raw
+				metadataProviderName = result.Error.Metadata.ProviderName
+			}
+			return "", fmt.Errorf("text provider error: %s", buildOpenRouterErrorMessage(result.Error.Message, metadataRaw, metadataProviderName))
 		}
 		return "", fmt.Errorf("text provider error: status %d", resp.StatusCode)
 	}
@@ -1340,7 +1527,13 @@ func polishMemoryStoryWithConfig(ctx context.Context, config openRouterConfig, p
 
 	if resp.StatusCode >= http.StatusBadRequest {
 		if result.Error != nil && result.Error.Message != "" {
-			return "", fmt.Errorf("openrouter error: %s", buildOpenRouterErrorMessage(result.Error.Message, result.Error.Metadata.Raw, result.Error.Metadata.ProviderName))
+			metadataRaw := ""
+			metadataProviderName := ""
+			if result.Error.Metadata != nil {
+				metadataRaw = result.Error.Metadata.Raw
+				metadataProviderName = result.Error.Metadata.ProviderName
+			}
+			return "", fmt.Errorf("openrouter error: %s", buildOpenRouterErrorMessage(result.Error.Message, metadataRaw, metadataProviderName))
 		}
 		return "", fmt.Errorf("openrouter error: status %d", resp.StatusCode)
 	}
